@@ -55,3 +55,4 @@ curl -X POST "http://localhost:8000/v1/decide" \
 - Improve `opening_hours` parsing for more OSM formats.
 - Add tests around `/v1/decide` endpoint with mocked Overpass responses.
 - Add mode support (`assisted`, `exploration`) in API and UI.
+# instant-food-decision-engine
