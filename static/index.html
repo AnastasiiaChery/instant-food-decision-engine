@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Instant Food Decision Engine</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: #f7f7f7;
+        color: #111;
+      }
+      .container {
+        max-width: 620px;
+        margin: 0 auto;
+        padding: 24px 16px 40px;
+      }
+      .search-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      #queryInput {
+        flex: 1;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 14px;
+        outline: none;
+        background: white;
+      }
+      #queryInput:focus {
+        border-color: #1d4ed8;
+      }
+      button {
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        cursor: pointer;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+      #findBtn {
+        background: #1d4ed8;
+        color: white;
+      }
+      #findBtn:disabled {
+        background: #93c5fd;
+        cursor: default;
+      }
+      .card {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+        margin-top: 12px;
+        transition: box-shadow 0.2s;
+      }
+      .card.top {
+        border-left: 4px solid #1d4ed8;
+      }
+      .card-name {
+        font-size: 17px;
+        font-weight: 700;
+        margin: 0 0 4px;
+      }
+      .card-meta {
+        font-size: 13px;
+        color: #6b7280;
+        margin: 0 0 6px;
+      }
+      .card-reason {
+        font-size: 14px;
+        color: #374151;
+        margin: 6px 0 0;
+        min-height: 20px;
+      }
+      .card-reason.loading {
+        color: #9ca3af;
+        font-style: italic;
+      }
+      .score-badge {
+        display: inline-block;
+        background: #dbeafe;
+        color: #1d4ed8;
+        border-radius: 6px;
+        padding: 2px 7px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-left: 6px;
+        vertical-align: middle;
+      }
+      .card-nav {
+        display: inline-block;
+        margin-top: 8px;
+        color: #1d4ed8;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      #status {
+        margin-top: 12px;
+        font-size: 14px;
+        color: #374151;
+      }
+      #results {
+        margin-top: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Instant Food Decision</h1>
+      <p>Tell me what you want — I'll find it nearby.</p>
+
+      <div class="search-row">
+        <input
+          id="queryInput"
+          type="text"
+          placeholder="e.g. something cozy and affordable..."
+          autocomplete="off"
+        />
+        <button id="findBtn">Find</button>
+      </div>
+
+      <p id="status">Ready.</p>
+      <div id="results"></div>
+    </div>
+
+    <script>
+      const findBtn = document.getElementById("findBtn");
+      const queryInput = document.getElementById("queryInput");
+      const statusEl = document.getElementById("status");
+      const resultsEl = document.getElementById("results");
+
+      // place_key → card DOM element
+      const cardMap = new Map();
+
+      function placeKey(p) {
+        return `${(p.name || "").trim().toLowerCase()}|${Number(p.lat).toFixed(5)}|${Number(p.lon).toFixed(5)}`;
+      }
+
+      function renderPlaces(places) {
+        resultsEl.innerHTML = "";
+        cardMap.clear();
+        places.forEach((p, i) => {
+          const card = document.createElement("div");
+          card.className = "card" + (i === 0 ? " top" : "");
+
+          const cuisine = p.cuisine ? ` · ${p.cuisine}` : "";
+          card.innerHTML = `
+            <p class="card-name">${p.name}</p>
+            <p class="card-meta">${Math.round(p.distance_m)}m · ${p.amenity || "food"}${cuisine}</p>
+            <p class="card-reason loading">Analysing with AI…</p>
+            <a class="card-nav" href="${p.nav_url}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+          `;
+          resultsEl.appendChild(card);
+          cardMap.set(placeKey(p), card);
+        });
+      }
+
+      function applyRanking(ranked) {
+        // reorder cards by AI ranking
+        ranked.forEach((p, i) => {
+          const key = placeKey(p);
+          const card = cardMap.get(key);
+          if (!card) return;
+
+          // update class
+          card.className = "card" + (i === 0 ? " top" : "");
+
+          // update reason
+          const reasonEl = card.querySelector(".card-reason");
+          if (reasonEl) {
+            reasonEl.className = "card-reason";
+            const scoreBadge = p.match_score != null
+              ? `<span class="score-badge">${Math.round(p.match_score * 100)}%</span>`
+              : "";
+            reasonEl.innerHTML = scoreBadge + " " + (p.reason || "");
+          }
+
+          // reorder in DOM
+          resultsEl.appendChild(card);
+        });
+      }
+
+      async function doSearch(lat, lng, query) {
+        findBtn.disabled = true;
+        statusEl.textContent = "Searching nearby places…";
+        resultsEl.innerHTML = "";
+        cardMap.clear();
+
+        try {
+          const response = await fetch("/api/v1/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lat, lng, query }),
+          });
+
+          if (!response.ok) {
+            statusEl.textContent = `Error: ${response.status}`;
+            return;
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            // parse SSE chunks from buffer
+            const chunks = buffer.split("\n\n");
+            buffer = chunks.pop(); // keep incomplete chunk
+
+            for (const chunk of chunks) {
+              if (!chunk.trim()) continue;
+              let eventType = "message";
+              let dataLine = "";
+              for (const line of chunk.split("\n")) {
+                if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+                else if (line.startsWith("data: ")) dataLine = line.slice(6);
+              }
+              if (!dataLine) continue;
+              try {
+                const payload = JSON.parse(dataLine);
+                if (eventType === "places") {
+                  renderPlaces(payload);
+                  statusEl.textContent = `Found ${payload.length} places. Getting AI rankings…`;
+                } else if (eventType === "ranked") {
+                  applyRanking(payload);
+                  statusEl.textContent = "Done.";
+                } else if (eventType === "error") {
+                  statusEl.textContent = payload.detail || "Something went wrong.";
+                }
+              } catch (_) {}
+            }
+          }
+        } catch (err) {
+          statusEl.textContent = `Error: ${err.message}`;
+        } finally {
+          findBtn.disabled = false;
+        }
+      }
+
+      function startSearch() {
+        const query = queryInput.value.trim() || "something good nearby";
+        statusEl.textContent = "Requesting location…";
+        navigator.geolocation.getCurrentPosition(
+          (pos) => doSearch(pos.coords.latitude, pos.coords.longitude, query),
+          () => { statusEl.textContent = "Location permission is required."; },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      }
+
+      findBtn.addEventListener("click", startSearch);
+      queryInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") startSearch();
+      });
+    </script>
+  </body>
+</html>
