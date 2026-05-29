@@ -8,7 +8,9 @@ from fastapi.responses import FileResponse, Response
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.decide import router as decide_router
+from app.api.v1.routes.history import router as history_router
 from app.api.v1.routes.search import limiter, router as search_router
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -25,6 +27,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Instant Food Decision Engine", version="0.2.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.include_router(auth_router)
+app.include_router(history_router)
 app.include_router(search_router)
 app.include_router(decide_router)
 

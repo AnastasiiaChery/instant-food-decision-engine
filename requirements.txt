@@ -7,3 +7,7 @@ openai
 python-dotenv
 slowapi
 redis
+sqlalchemy[asyncio]>=2.0
+asyncpg
+alembic
+python-jose[cryptography]

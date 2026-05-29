@@ -1,265 +1,913 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Instant Food Decision Engine</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        background: #f7f7f7;
-        color: #111;
-      }
-      .container {
-        max-width: 620px;
-        margin: 0 auto;
-        padding: 24px 16px 40px;
-      }
-      .search-row {
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Instant Food</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #f5f4f0;
+      --surface:      #ffffff;
+      --accent:       #2455d4;
+      --accent-muted: #dce8ff;
+      --text:         #0e0e0e;
+      --text-2:       #5c5c5c;
+      --text-3:       #a0a0a0;
+      --border:       #e4e2da;
+      --shadow:       0 2px 12px rgba(0,0,0,0.07);
+      --r:            12px;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .brand {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-weight: 400;
+      font-size: 20px;
+      letter-spacing: -0.2px;
+      color: var(--text);
+      line-height: 1;
+    }
+    .brand em { color: var(--accent); font-style: normal; }
+    .header-sub {
+      font-size: 11px;
+      color: var(--text-3);
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+
+    .auth-btn {
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    /* ── Mode tabs ── */
+    .mode-tabs {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      flex-shrink: 0;
+      display: flex;
+    }
+    .mode-tab {
+      padding: 10px 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-3);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+      margin-bottom: -1px;
+    }
+    .mode-tab:hover { color: var(--text-2); }
+    .mode-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ── Map ── */
+    #map {
+      width: 100%;
+      height: 44vh;
+      min-height: 240px;
+      max-height: 400px;
+      flex-shrink: 0;
+      z-index: 1;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .mode-panel { display: none; }
+    .mode-panel.active { display: block; }
+
+    /* Autopilot panel */
+    #panel-autopilot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 20px 18px;
+      gap: 10px;
+      text-align: center;
+    }
+    #panel-autopilot.active { display: flex; }
+
+    .autopilot-tagline {
+      font-size: 13px;
+      color: var(--text-3);
+      font-style: italic;
+    }
+
+    #autopilotBtn {
+      width: 100%;
+      max-width: 340px;
+      padding: 15px 24px;
+      background: var(--accent);
+      color: #fff;
+      font-family: 'Fraunces', serif;
+      font-size: 18px;
+      font-weight: 300;
+      font-style: italic;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.12s, box-shadow 0.15s;
+      box-shadow: 0 4px 20px rgba(36, 85, 212, 0.30);
+      letter-spacing: -0.2px;
+    }
+    #autopilotBtn:hover:not(:disabled) {
+      opacity: 0.92;
+      transform: translateY(-1px);
+      box-shadow: 0 7px 28px rgba(36, 85, 212, 0.38);
+    }
+    #autopilotBtn:active:not(:disabled) { transform: scale(0.97); }
+    #autopilotBtn:disabled { opacity: 0.42; cursor: default; box-shadow: none; }
+
+    /* Preferences panel */
+    #panel-preferences { padding: 14px 20px 12px; }
+
+    .search-row { display: flex; gap: 8px; align-items: stretch; }
+    #queryInput {
+      flex: 1;
+      padding: 10px 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+      min-width: 0;
+    }
+    #queryInput::placeholder { color: var(--text-3); }
+    #queryInput:focus { border-color: var(--accent); background: #fff; }
+
+    #findBtn {
+      flex-shrink: 0;
+      padding: 10px 18px;
+      background: var(--accent);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    #findBtn:hover:not(:disabled) { opacity: 0.88; }
+    #findBtn:active:not(:disabled) { transform: scale(0.96); }
+    #findBtn:disabled { opacity: 0.45; cursor: default; }
+
+    .slider-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .slider-label { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+    #radiusSlider { flex: 1; accent-color: var(--accent); cursor: pointer; height: 3px; }
+    #radiusVal { font-size: 12px; font-weight: 600; color: var(--accent); min-width: 42px; text-align: right; }
+
+    .chips-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .chip {
+      padding: 5px 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface);
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+      line-height: 1.4;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
+    .chip.active { background: var(--accent-muted); border-color: var(--accent); color: var(--accent); }
+
+    /* Plan panel */
+    #panel-plan { padding: 14px 20px 16px; }
+    .plan-inner { display: flex; flex-direction: column; gap: 12px; }
+    .plan-row { display: flex; flex-direction: column; gap: 6px; }
+    .plan-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+    }
+    .plan-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .plan-chip {
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface);
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+      line-height: 1.4;
+    }
+    .plan-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .plan-chip.active { background: var(--accent-muted); border-color: var(--accent); color: var(--accent); }
+
+    .plan-soon {
+      font-size: 11px;
+      color: var(--text-3);
+      font-style: italic;
+      text-align: center;
+      padding-top: 4px;
+    }
+    #planBtn {
+      width: 100%;
+      padding: 11px;
+      background: var(--accent);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      border-radius: 10px;
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    /* ── Status bar ── */
+    #statusBar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 20px;
+      min-height: 36px;
+      flex-shrink: 0;
+    }
+    .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--border); transition: background 0.3s; }
+    .dot.loading { background: var(--accent); animation: blink 1.1s infinite; }
+    .dot.done    { background: #22c55e; animation: none; }
+    .dot.error   { background: #ef4444; animation: none; }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+    #statusText { font-size: 12px; color: var(--text-3); letter-spacing: 0.2px; }
+
+    /* ── Results area ── */
+    #results { flex: 1; padding: 12px 20px 48px; overflow-y: auto; }
+
+    /* ── Recommendation card (Autopilot) ── */
+    .rec-card {
+      background: var(--surface);
+      border: 2px solid var(--accent);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 6px 28px rgba(36, 85, 212, 0.12);
+      animation: fadeUp 0.32s ease both;
+    }
+    .rec-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-muted);
+      padding: 3px 8px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+    }
+    .rec-name {
+      font-family: 'Fraunces', serif;
+      font-weight: 600;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: -0.3px;
+      margin-bottom: 4px;
+    }
+    .rec-meta {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-bottom: 12px;
+    }
+    .rec-reason {
+      font-size: 14px;
+      color: var(--text-2);
+      line-height: 1.65;
+      font-style: italic;
+      border-left: 3px solid var(--accent-muted);
+      padding-left: 12px;
+      margin-bottom: 16px;
+    }
+    .rec-actions { display: flex; gap: 10px; align-items: center; }
+    .rec-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 10px 20px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .rec-nav:hover { opacity: 0.88; }
+    .rec-another {
+      font-size: 13px;
+      color: var(--text-3);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 10px 4px;
+      transition: color 0.15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .rec-another:hover { color: var(--accent); }
+
+    /* ── Regular cards (Preferences) ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 10px;
+    }
+    @media (max-width: 600px) {
+      .cards-grid {
         display: flex;
-        gap: 8px;
-        margin-top: 8px;
+        gap: 10px;
+        overflow-x: auto;
+        padding-bottom: 8px;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
       }
-      #queryInput {
-        flex: 1;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        padding: 10px 12px;
-        font-size: 14px;
-        outline: none;
-        background: white;
-      }
-      #queryInput:focus {
-        border-color: #1d4ed8;
-      }
-      button {
-        border: 0;
-        border-radius: 8px;
-        padding: 10px 14px;
-        cursor: pointer;
-        font-size: 14px;
-        white-space: nowrap;
-      }
-      #findBtn {
-        background: #1d4ed8;
-        color: white;
-      }
-      #findBtn:disabled {
-        background: #93c5fd;
-        cursor: default;
-      }
-      .card {
-        background: white;
-        border-radius: 12px;
-        padding: 16px;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-        margin-top: 12px;
-        transition: box-shadow 0.2s;
-      }
-      .card.top {
-        border-left: 4px solid #1d4ed8;
-      }
-      .card-name {
-        font-size: 17px;
-        font-weight: 700;
-        margin: 0 0 4px;
-      }
-      .card-meta {
-        font-size: 13px;
-        color: #6b7280;
-        margin: 0 0 6px;
-      }
-      .card-reason {
-        font-size: 14px;
-        color: #374151;
-        margin: 6px 0 0;
-        min-height: 20px;
-      }
-      .card-reason.loading {
-        color: #9ca3af;
-        font-style: italic;
-      }
-      .score-badge {
-        display: inline-block;
-        background: #dbeafe;
-        color: #1d4ed8;
-        border-radius: 6px;
-        padding: 2px 7px;
-        font-size: 12px;
-        font-weight: 600;
-        margin-left: 6px;
-        vertical-align: middle;
-      }
-      .card-nav {
-        display: inline-block;
-        margin-top: 8px;
-        color: #1d4ed8;
-        text-decoration: none;
-        font-weight: 600;
-        font-size: 14px;
-      }
-      #status {
-        margin-top: 12px;
-        font-size: 14px;
-        color: #374151;
-      }
-      #results {
-        margin-top: 4px;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <h1>Instant Food Decision</h1>
-      <p>Tell me what you want — I'll find it nearby.</p>
+      .card { min-width: 268px; flex-shrink: 0; scroll-snap-align: start; }
+    }
+    .card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      animation: fadeUp 0.28s ease both;
+    }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .card:hover { border-color: #bad0fb; box-shadow: 0 4px 18px rgba(36, 85, 212, 0.09); }
+    .card.top { border-color: var(--accent); box-shadow: 0 4px 20px rgba(36, 85, 212, 0.13); }
 
-      <div class="search-row">
-        <input
-          id="queryInput"
-          type="text"
-          placeholder="e.g. something cozy and affordable..."
-          autocomplete="off"
-        />
-        <button id="findBtn">Find</button>
-      </div>
+    .card-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 5px; }
+    .rank-badge {
+      flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+      font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; margin-top: 2px;
+    }
+    .card.top .rank-badge  { background: var(--accent); color: #fff; }
+    .card:not(.top) .rank-badge { background: var(--bg); color: var(--text-2); }
+    .card-name { flex: 1; font-family: 'Fraunces', serif; font-weight: 600; font-size: 15px; line-height: 1.25; }
+    .score-pill {
+      flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--accent);
+      background: var(--accent-muted); padding: 2px 7px; border-radius: 20px;
+      opacity: 0; transform: scale(0.8);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .score-pill.show { opacity: 1; transform: scale(1); }
+    .card-meta { font-size: 12px; color: var(--text-2); margin-bottom: 8px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .skel {
+      border-radius: 4px; height: 12px;
+      background: linear-gradient(90deg, #eeece5 25%, #e4e2da 50%, #eeece5 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      margin-bottom: 6px;
+    }
+    .skel.short { width: 60%; margin-bottom: 0; }
+    .card-reason { font-size: 13px; color: var(--text-2); line-height: 1.55; min-height: 36px; }
+    .card-nav {
+      display: inline-flex; align-items: center; gap: 3px;
+      margin-top: 10px; color: var(--accent); font-size: 13px; font-weight: 500; text-decoration: none;
+    }
+    .card-nav:hover { text-decoration: underline; }
 
-      <p id="status">Ready.</p>
-      <div id="results"></div>
+    /* ── Map pins ── */
+    .mpin {
+      border-radius: 50%; background: #fff; border: 2px solid var(--accent); color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'DM Sans', sans-serif; font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18); transition: transform 0.2s; cursor: pointer;
+      font-size: 11px; width: 26px; height: 26px;
+    }
+    .mpin.top { background: var(--accent); color: #fff; width: 32px; height: 32px; font-size: 13px; }
+    .mpin:hover { transform: scale(1.18); }
+    .leaflet-popup-content-wrapper { border-radius: 8px !important; font-family: 'DM Sans', sans-serif !important; font-size: 13px !important; box-shadow: var(--shadow) !important; }
+    .leaflet-popup-content { margin: 8px 12px !important; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">instant<em>food</em></div>
+    <span class="header-sub">Nearby · AI ranked</span>
+    <a id="authBtn" class="auth-btn" href="/auth/google">Sign in</a>
+  </header>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" data-mode="autopilot">Autopilot</button>
+    <button class="mode-tab" data-mode="preferences">Preferences</button>
+    <button class="mode-tab" data-mode="plan">Plan</button>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="controls">
+
+    <!-- Autopilot -->
+    <div class="mode-panel active" id="panel-autopilot">
+      <p class="autopilot-tagline">Tired? Don't want to decide?</p>
+      <button id="autopilotBtn">Find me food →</button>
     </div>
 
-    <script>
-      const findBtn = document.getElementById("findBtn");
-      const queryInput = document.getElementById("queryInput");
-      const statusEl = document.getElementById("status");
-      const resultsEl = document.getElementById("results");
+    <!-- Preferences -->
+    <div class="mode-panel" id="panel-preferences">
+      <div class="search-row">
+        <input id="queryInput" type="text"
+               placeholder="Something cozy and affordable…"
+               autocomplete="off" />
+        <button id="findBtn">Find →</button>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Radius</span>
+        <input id="radiusSlider" type="range" min="0.5" max="3" step="0.5" value="1.5" />
+        <span id="radiusVal">1.5 km</span>
+      </div>
+      <div class="chips-row">
+        <div class="chip" data-tag="open now">Open now</div>
+        <div class="chip" data-tag="cheap">Cheap</div>
+        <div class="chip" data-tag="terrace">Terrace</div>
+        <div class="chip" data-tag="cozy">Cozy</div>
+        <div class="chip" data-tag="quick bite">Quick bite</div>
+        <div class="chip" data-tag="outdoor seating">Outdoor</div>
+      </div>
+    </div>
 
-      // place_key → card DOM element
-      const cardMap = new Map();
+    <!-- Plan -->
+    <div class="mode-panel" id="panel-plan">
+      <div class="plan-inner">
+        <div class="plan-row">
+          <span class="plan-label">When</span>
+          <div class="plan-chips">
+            <div class="plan-chip active" data-group="when" data-val="now">Right now</div>
+            <div class="plan-chip" data-group="when" data-val="tonight">Tonight</div>
+            <div class="plan-chip" data-group="when" data-val="custom">Pick time…</div>
+          </div>
+        </div>
+        <div class="plan-row">
+          <span class="plan-label">Group</span>
+          <div class="plan-chips">
+            <div class="plan-chip active" data-group="group" data-val="solo">Solo</div>
+            <div class="plan-chip" data-group="group" data-val="duo">2 people</div>
+            <div class="plan-chip" data-group="group" data-val="small_group">Small group</div>
+            <div class="plan-chip" data-group="group" data-val="large_group">Large group</div>
+          </div>
+        </div>
+        <div class="plan-row">
+          <span class="plan-label">Occasion</span>
+          <div class="plan-chips">
+            <div class="plan-chip active" data-group="occasion" data-val="casual">Casual</div>
+            <div class="plan-chip" data-group="occasion" data-val="romantic">Romantic</div>
+            <div class="plan-chip" data-group="occasion" data-val="business">Business</div>
+            <div class="plan-chip" data-group="occasion" data-val="celebration">Celebration 🎉</div>
+          </div>
+        </div>
+        <p class="plan-soon">Full AI planning — coming soon</p>
+        <button id="planBtn" disabled>Plan my dinner →</button>
+      </div>
+    </div>
 
-      function placeKey(p) {
-        return `${(p.name || "").trim().toLowerCase()}|${Number(p.lat).toFixed(5)}|${Number(p.lon).toFixed(5)}`;
-      }
+  </div>
 
-      function renderPlaces(places) {
-        resultsEl.innerHTML = "";
-        cardMap.clear();
-        places.forEach((p, i) => {
-          const card = document.createElement("div");
-          card.className = "card" + (i === 0 ? " top" : "");
+  <div id="statusBar">
+    <div class="dot" id="dot"></div>
+    <span id="statusText">Ready</span>
+  </div>
 
-          const cuisine = p.cuisine ? ` · ${p.cuisine}` : "";
-          card.innerHTML = `
-            <p class="card-name">${p.name}</p>
-            <p class="card-meta">${Math.round(p.distance_m)}m · ${p.amenity || "food"}${cuisine}</p>
-            <p class="card-reason loading">Analysing with AI…</p>
-            <a class="card-nav" href="${p.nav_url}" target="_blank" rel="noopener noreferrer">Navigate →</a>
-          `;
-          resultsEl.appendChild(card);
-          cardMap.set(placeKey(p), card);
-        });
-      }
+  <div id="results">
+    <div id="cardsGrid" class="cards-grid"></div>
+  </div>
 
-      function applyRanking(ranked) {
-        // reorder cards by AI ranking
-        ranked.forEach((p, i) => {
-          const key = placeKey(p);
-          const card = cardMap.get(key);
-          if (!card) return;
+  <script>
+    // ── Auth / token management ──
+    const TOKEN_KEY = 'instantfood_token';
+    function getToken() { return localStorage.getItem(TOKEN_KEY); }
+    function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
 
-          // update class
-          card.className = "card" + (i === 0 ? " top" : "");
+    const urlParams = new URLSearchParams(location.search);
+    const urlToken = urlParams.get('token');
+    if (urlToken) {
+      setToken(urlToken);
+      history.replaceState({}, '', '/');
+    }
 
-          // update reason
-          const reasonEl = card.querySelector(".card-reason");
-          if (reasonEl) {
-            reasonEl.className = "card-reason";
-            const scoreBadge = p.match_score != null
-              ? `<span class="score-badge">${Math.round(p.match_score * 100)}%</span>`
-              : "";
-            reasonEl.innerHTML = scoreBadge + " " + (p.reason || "");
-          }
-
-          // reorder in DOM
-          resultsEl.appendChild(card);
-        });
-      }
-
-      async function doSearch(lat, lng, query) {
-        findBtn.disabled = true;
-        statusEl.textContent = "Searching nearby places…";
-        resultsEl.innerHTML = "";
-        cardMap.clear();
-
+    (function updateAuthBtn() {
+      const token = getToken();
+      const btn = document.getElementById('authBtn');
+      if (!btn) return;
+      if (token) {
         try {
-          const response = await fetch("/api/v1/search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ lat, lng, query }),
-          });
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          btn.textContent = payload.email || 'Signed in';
+        } catch (_) {
+          btn.textContent = 'Signed in';
+        }
+        btn.removeAttribute('href');
+        btn.style.cursor = 'default';
+      }
+    })();
 
-          if (!response.ok) {
-            statusEl.textContent = `Error: ${response.status}`;
-            return;
+    async function recordNavigate(place) {
+      const token = getToken();
+      if (!token) return;
+      fetch('/api/v1/history/navigate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          place_name: place.name,
+          place_type: place.amenity || 'restaurant',
+          lat: place.lat,
+          lng: place.lon,
+        }),
+      }).catch(() => {});
+    }
+
+    // ── Map ──
+    const map = L.map('map', { zoomControl: false }).setView([48.8566, 2.3522], 14);
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd', maxZoom: 19,
+    }).addTo(map);
+
+    let leafletMarkers = [];
+    let userCircle = null;
+    const cardMap = new Map();
+
+    function clearMarkers() {
+      leafletMarkers.forEach(m => m.remove());
+      leafletMarkers = [];
+    }
+
+    function pinIcon(idx, isTop) {
+      const size = isTop ? 32 : 26;
+      return L.divIcon({
+        className: '',
+        html: `<div class="mpin${isTop ? ' top' : ''}">${idx + 1}</div>`,
+        iconSize: [size, size], iconAnchor: [size / 2, size / 2],
+      });
+    }
+
+    function placeKey(p) {
+      return `${(p.name || '').trim().toLowerCase()}|${Number(p.lat).toFixed(5)}|${Number(p.lon).toFixed(5)}`;
+    }
+
+    // ── Mode tabs ──
+    let currentMode = 'autopilot';
+
+    document.querySelectorAll('.mode-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        currentMode = tab.dataset.mode;
+        document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + currentMode).classList.add('active');
+        document.getElementById('cardsGrid').innerHTML = '';
+        cardMap.clear();
+        clearMarkers();
+        setStatus('Ready');
+      });
+    });
+
+    // ── Preferences controls ──
+    const radiusSlider = document.getElementById('radiusSlider');
+    const radiusVal    = document.getElementById('radiusVal');
+    radiusSlider.addEventListener('input', () => { radiusVal.textContent = radiusSlider.value + ' km'; });
+
+    const activeChips = new Set();
+    document.querySelectorAll('#panel-preferences .chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const tag = chip.dataset.tag;
+        if (activeChips.has(tag)) { activeChips.delete(tag); chip.classList.remove('active'); }
+        else                      { activeChips.add(tag);    chip.classList.add('active'); }
+      });
+    });
+
+    // ── Plan controls (UI only) ──
+    document.querySelectorAll('.plan-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const group = chip.dataset.group;
+        document.querySelectorAll(`.plan-chip[data-group="${group}"]`).forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+      });
+    });
+
+    // ── Status ──
+    const dot        = document.getElementById('dot');
+    const statusText = document.getElementById('statusText');
+    const cardsGrid  = document.getElementById('cardsGrid');
+
+    function setStatus(text, state = '') {
+      statusText.textContent = text;
+      dot.className = 'dot' + (state ? ' ' + state : '');
+    }
+
+    // ── SSE helper ──
+    async function consumeSSE(res, onEvent) {
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const chunks = buf.split('\n\n');
+        buf = chunks.pop();
+        for (const chunk of chunks) {
+          if (!chunk.trim()) continue;
+          let evType = 'message', dataLine = '';
+          for (const line of chunk.split('\n')) {
+            if (line.startsWith('event: ')) evType = line.slice(7).trim();
+            else if (line.startsWith('data: ')) dataLine = line.slice(6);
           }
-
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            // parse SSE chunks from buffer
-            const chunks = buffer.split("\n\n");
-            buffer = chunks.pop(); // keep incomplete chunk
-
-            for (const chunk of chunks) {
-              if (!chunk.trim()) continue;
-              let eventType = "message";
-              let dataLine = "";
-              for (const line of chunk.split("\n")) {
-                if (line.startsWith("event: ")) eventType = line.slice(7).trim();
-                else if (line.startsWith("data: ")) dataLine = line.slice(6);
-              }
-              if (!dataLine) continue;
-              try {
-                const payload = JSON.parse(dataLine);
-                if (eventType === "places") {
-                  renderPlaces(payload);
-                  statusEl.textContent = `Found ${payload.length} places. Getting AI rankings…`;
-                } else if (eventType === "ranked") {
-                  applyRanking(payload);
-                  statusEl.textContent = "Done.";
-                } else if (eventType === "error") {
-                  statusEl.textContent = payload.detail || "Something went wrong.";
-                }
-              } catch (_) {}
-            }
-          }
-        } catch (err) {
-          statusEl.textContent = `Error: ${err.message}`;
-        } finally {
-          findBtn.disabled = false;
+          if (!dataLine) continue;
+          try { onEvent(evType, JSON.parse(dataLine)); } catch (_) {}
         }
       }
+    }
 
-      function startSearch() {
-        const query = queryInput.value.trim() || "something good nearby";
-        statusEl.textContent = "Requesting location…";
+    // ── Location helper ──
+    function getLocation() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error('Geolocation not supported.'));
+          return;
+        }
         navigator.geolocation.getCurrentPosition(
-          (pos) => doSearch(pos.coords.latitude, pos.coords.longitude, query),
-          () => { statusEl.textContent = "Location permission is required."; },
-          { enableHighAccuracy: true, timeout: 10000 }
+          pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          (err) => {
+            if (err.code === 1) reject(new Error('Location permission denied.'));
+            else if (err.code === 2) reject(new Error('Location unavailable.'));
+            else reject(new Error('Location timed out.'));
+          },
+          { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
         );
+      });
+    }
+
+    function placeUserPin(lat, lng) {
+      if (userCircle) userCircle.remove();
+      userCircle = L.circleMarker([lat, lng], {
+        radius: 7, fillColor: '#2455d4', color: '#fff', weight: 2.5, fillOpacity: 1,
+      }).addTo(map).bindPopup('You are here');
+    }
+
+    // ── Preferences: render places (skeleton) ──
+    function renderPlaces(places) {
+      cardsGrid.innerHTML = '';
+      cardMap.clear();
+      clearMarkers();
+      const bounds = [];
+
+      places.forEach((p, i) => {
+        const isTop = i === 0;
+        const card = document.createElement('div');
+        card.className = 'card' + (isTop ? ' top' : '');
+        card.style.animationDelay = `${i * 0.055}s`;
+        const cuisine = p.cuisine ? ` · ${p.cuisine}` : '';
+        card.innerHTML = `
+          <div class="card-head">
+            <div class="rank-badge">${i + 1}</div>
+            <div class="card-name">${p.name || 'Unnamed'}</div>
+            <div class="score-pill"></div>
+          </div>
+          <div class="card-meta">${Math.round(p.distance_m)}m · ${p.amenity || 'food'}${cuisine}</div>
+          <div class="card-reason"><div class="skel"></div><div class="skel short"></div></div>
+          <a class="card-nav" href="${p.nav_url}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+        `;
+        cardsGrid.appendChild(card);
+        card.querySelector('.card-nav').addEventListener('click', () => recordNavigate(p));
+
+        const marker = L.marker([p.lat, p.lon], { icon: pinIcon(i, isTop) })
+          .addTo(map).bindPopup(`<strong>${p.name}</strong><br>${Math.round(p.distance_m)}m`);
+        marker.on('click', () => card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }));
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.card-nav')) return;
+          map.flyTo([p.lat, p.lon], 16, { animate: true, duration: 0.5 });
+          marker.openPopup();
+        });
+        leafletMarkers.push(marker);
+        cardMap.set(placeKey(p), { card, markerIdx: i });
+        bounds.push([p.lat, p.lon]);
+      });
+
+      if (bounds.length) map.fitBounds(bounds, { padding: [44, 44], maxZoom: 15, animate: true });
+    }
+
+    // ── Preferences: apply AI ranking ──
+    function applyRanking(ranked) {
+      ranked.forEach((p, i) => {
+        const entry = cardMap.get(placeKey(p));
+        if (!entry) return;
+        const { card, markerIdx } = entry;
+        const isTop = i === 0;
+        card.className = 'card' + (isTop ? ' top' : '');
+        const rankEl  = card.querySelector('.rank-badge');
+        if (rankEl) rankEl.textContent = i + 1;
+        const scoreEl = card.querySelector('.score-pill');
+        if (scoreEl && p.match_score != null) {
+          scoreEl.textContent = Math.round(p.match_score * 100) + '%';
+          scoreEl.classList.add('show');
+        }
+        const reasonEl = card.querySelector('.card-reason');
+        if (reasonEl) reasonEl.innerHTML = p.reason || '';
+        cardsGrid.appendChild(card);
+        if (leafletMarkers[markerIdx]) leafletMarkers[markerIdx].setIcon(pinIcon(i, isTop));
+      });
+    }
+
+    // ── Autopilot: render recommendation ──
+    function renderRecommendation(data) {
+      const { place, reason } = data;
+      const cuisine = place.cuisine ? ` · ${place.cuisine}` : '';
+
+      cardsGrid.innerHTML = '';
+      cardMap.clear();
+      clearMarkers();
+
+      const card = document.createElement('div');
+      card.className = 'rec-card';
+      card.innerHTML = `
+        <div class="rec-badge">AI pick</div>
+        <div class="rec-name">${place.name || 'Unnamed'}</div>
+        <div class="rec-meta">${Math.round(place.distance_m)}m · ${place.amenity || 'food'}${cuisine}</div>
+        <div class="rec-reason">${reason}</div>
+        <div class="rec-actions">
+          <a class="rec-nav" href="${place.nav_url}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+          <button class="rec-another">Another option</button>
+        </div>
+      `;
+      cardsGrid.appendChild(card);
+
+      card.querySelector('.rec-nav').addEventListener('click', () => recordNavigate(place));
+      card.querySelector('.rec-another').addEventListener('click', doAutopilot);
+
+      const marker = L.marker([place.lat, place.lon], { icon: pinIcon(0, true) })
+        .addTo(map).bindPopup(`<strong>${place.name}</strong><br>${Math.round(place.distance_m)}m`);
+      leafletMarkers.push(marker);
+      map.flyTo([place.lat, place.lon], 15, { animate: true, duration: 0.8 });
+      setTimeout(() => marker.openPopup(), 900);
+    }
+
+    // ── Autopilot search ──
+    async function doAutopilot() {
+      const btn = document.getElementById('autopilotBtn');
+      btn.disabled = true;
+      cardsGrid.innerHTML = '';
+      cardMap.clear();
+      clearMarkers();
+      setStatus('Requesting location…', 'loading');
+
+      let lat, lng;
+      try {
+        ({ lat, lng } = await getLocation());
+      } catch (err) {
+        setStatus(err.message, 'error');
+        btn.disabled = false;
+        return;
       }
 
-      findBtn.addEventListener("click", startSearch);
-      queryInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") startSearch();
-      });
-    </script>
-  </body>
+      placeUserPin(lat, lng);
+
+      try {
+        const res = await fetch('/api/v1/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'autopilot', lat, lng }),
+        });
+        if (!res.ok) { setStatus(`Error ${res.status}`, 'error'); return; }
+
+        await consumeSSE(res, (evType, payload) => {
+          if (evType === 'searching') {
+            const r = payload.radius_m ? ` (${payload.radius_m}m)` : '';
+            setStatus(`AI searching nearby${r}…`, 'loading');
+          } else if (evType === 'places') {
+            const places = payload.places || payload;
+            setStatus(`Analysing ${places.length} candidates…`, 'loading');
+          } else if (evType === 'recommendation') {
+            renderRecommendation(payload);
+            setStatus("Here's your place", 'done');
+          } else if (evType === 'error') {
+            setStatus(payload.detail || 'Something went wrong.', 'error');
+          }
+        });
+      } catch (err) {
+        setStatus(`Error: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ── Preferences search ──
+    async function doPreferences() {
+      const btn = document.getElementById('findBtn');
+      btn.disabled = true;
+      cardsGrid.innerHTML = '';
+      cardMap.clear();
+      clearMarkers();
+      setStatus('Requesting location…', 'loading');
+
+      let lat, lng;
+      try {
+        ({ lat, lng } = await getLocation());
+      } catch (err) {
+        setStatus(err.message, 'error');
+        btn.disabled = false;
+        return;
+      }
+
+      placeUserPin(lat, lng);
+
+      let query = document.getElementById('queryInput').value.trim() || 'something good nearby';
+      if (activeChips.size > 0) query += ', ' + [...activeChips].join(', ');
+
+      try {
+        const res = await fetch('/api/v1/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'preferences',
+            lat, lng, query,
+            radius_km: parseFloat(radiusSlider.value),
+          }),
+        });
+        if (!res.ok) { setStatus(`Error ${res.status}`, 'error'); return; }
+
+        await consumeSSE(res, (evType, payload) => {
+          if (evType === 'places') {
+            renderPlaces(payload);
+            setStatus(`Found ${payload.length} places — getting AI analysis…`, 'loading');
+          } else if (evType === 'ranked') {
+            applyRanking(payload);
+            setStatus(`${payload.length} results ranked`, 'done');
+          } else if (evType === 'error') {
+            setStatus(payload.detail || 'Something went wrong.', 'error');
+          }
+        });
+      } catch (err) {
+        setStatus(`Error: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ── Wire up buttons ──
+    document.getElementById('autopilotBtn').addEventListener('click', doAutopilot);
+    document.getElementById('findBtn').addEventListener('click', doPreferences);
+    document.getElementById('queryInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doPreferences();
+    });
+  </script>
+</body>
 </html>
