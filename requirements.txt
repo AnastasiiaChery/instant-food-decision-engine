@@ -11,3 +11,9 @@ sqlalchemy[asyncio]>=2.0
 asyncpg
 alembic
 python-jose[cryptography]
+passlib[bcrypt]
+langchain-groq>=0.3
+langgraph>=0.2
+langchain-core>=0.3
+pytest
+pytest-asyncio

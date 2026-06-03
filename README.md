@@ -9,7 +9,7 @@ AI-powered service that finds and recommends a food place nearby using your loca
 | API | FastAPI |
 | AI | Groq (llama-3.3-70b) via OpenAI-compatible SDK |
 | Geo | OpenStreetMap via Overpass API |
-| Auth | Google OAuth2 + JWT (python-jose) |
+| Auth | Google OAuth2 + email/password + JWT (python-jose, passlib) |
 | DB | PostgreSQL 16 + SQLAlchemy 2 async + Alembic |
 | Cache | Redis |
 | Frontend | Vanilla JS + Leaflet |
@@ -61,14 +61,27 @@ RELIABILITY_WEIGHT=0.25
 | `POST` | `/api/v1/decide` | Legacy single-result endpoint |
 | `GET` | `/auth/google` | Start Google OAuth flow |
 | `GET` | `/auth/callback` | OAuth callback → issues JWT |
-| `POST` | `/api/v1/history/navigate` | Record a Navigate click (auth required) |
+| `POST` | `/auth/register` | Email/password registration → JWT |
+| `POST` | `/auth/login` | Email/password login → JWT |
+| `POST` | `/api/v1/history/navigate` | Record navigate or favourite (auth required) |
+| `GET` | `/api/v1/history` | Get last 50 history entries (auth required) |
+| `GET` | `/api/v1/profile/preferences` | Get user preferences (auth required) |
+| `PUT` | `/api/v1/profile/preferences` | Update diet, cuisines (auth required) |
+| `PUT` | `/api/v1/profile/me` | Update display name (auth required) |
 
 ## Auth flow
 
-1. User clicks **Sign in** → redirected to `/auth/google` → Google login
+**Google OAuth:**
+1. User clicks **Sign in** → modal opens → "Continue with Google" → `/auth/google`
 2. Google bounces to `/auth/callback?code=...`
-3. Server exchanges code for user info, upserts user in DB, returns JWT via `/?token=<jwt>`
-4. Frontend stores JWT in `localStorage`; subsequent Navigate clicks POST to `/api/v1/history/navigate`
+3. Server upserts user, returns JWT via `/?token=<jwt>`
+
+**Email/password:**
+1. User opens modal → Register tab → fills email + password
+2. `POST /auth/register` → returns JWT
+3. Or existing user: Sign in tab → `POST /auth/login` → returns JWT
+
+Frontend stores JWT in `localStorage`. Signed-in users see their email in the header; clicking it opens the **User Drawer** with Profile and History tabs.
 
 ## Database
 
@@ -79,7 +92,7 @@ alembic upgrade head          # apply all migrations
 alembic revision --autogenerate -m "description"  # create new migration
 ```
 
-Tables: `users`, `search_history`
+Tables: `users` (with `password_hash`), `search_history` (with `action_type`: `navigate` | `favorite`)
 
 ## Run tests
 
@@ -92,8 +105,10 @@ make test
 ## Docker deployment
 
 ```bash
-make docker-build
-make docker-up
+docker compose build
+docker compose up -d
 curl http://localhost:8000/ready
-make docker-down
+docker compose down
 ```
+
+Migrations run automatically on container start via `entrypoint.sh`.

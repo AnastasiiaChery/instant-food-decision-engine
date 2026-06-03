@@ -16,4 +16,6 @@ class SearchHistory(Base):
     lng: Mapped[float] = mapped_column(Float, nullable=False)
     query: Mapped[str | None] = mapped_column(String(500), nullable=True)
     match_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    place_notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    action_type: Mapped[str] = mapped_column(String(20), server_default="navigate", nullable=False)
     chosen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
