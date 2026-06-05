@@ -28,7 +28,37 @@ POST /api/v1/search
   └─► SSE "ranked" — top results, ~1-2s later
 ```
 
-Three UI modes: **Autopilot** (AI picks one best option), **Preferences** (query + chips + radius), **Plan** (when, group size, occasion, radius).
+Three UI modes — see [UI modes](#ui-modes) below.
+
+## UI modes
+
+### 🎲 Autopilot
+One tap — AI picks the single best place nearby based on your location. No configuration needed. Returns one curated recommendation with a reason and navigation link.
+
+### 🔍 Preferences
+Full-text search with optional filters:
+- **Query** — free text: "cozy Italian", "cocktails", "something cheap and quick"
+- **Quick chips** — Open now · Cheap · Terrace · Cozy · Quick bite · Outdoor
+- **Radius slider** — 0.5 km to 3 km (default 1.5 km)
+- **Location** — GPS, address search, or click on map
+
+Returns up to 20 AI-ranked results. Top 5 shown immediately; "Show N more" reveals the rest. Places with relevance score < 0.2 are hidden.
+
+### 📅 Plan
+Structured planning for a specific outing:
+
+| Parameter | Options |
+|-----------|---------|
+| **When** | Right now · Tonight · Pick time (HH:MM) |
+| **Group** | Solo · 2 people · Small group · Large group |
+| **Occasion** | Casual · Romantic · Business · Celebration |
+| **Preferences** | Optional free text (dietary needs, vibe, cuisine) |
+| **Location** | 📍 GPS · 🔍 Address · 🗺 Click on map |
+| **Radius** | 0.5 km to 3 km slider |
+
+AI uses group size and occasion as ranking context — a "romantic" search favours quiet restaurants over loud bars, "business" favours places suitable for meetings, etc.
+
+---
 
 ## Run locally
 
