@@ -1,7 +1,7 @@
 """add_password_hash_to_users
 
 Revision ID: a1b2c3d4e5f6
-Revises: 87121ca3cdd8
+Revises: 0a98dada9442
 Create Date: 2026-06-03
 
 """
@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = 'a1b2c3d4e5f6'
-down_revision: Union[str, Sequence[str], None] = '87121ca3cdd8'
+down_revision: Union[str, Sequence[str], None] = '0a98dada9442'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

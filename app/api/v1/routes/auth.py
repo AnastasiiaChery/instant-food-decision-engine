@@ -44,7 +44,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(user)
 
-    token = create_access_token(user_id=user.id)
+    token = create_access_token(user_id=user.id, email=user.email, display_name=user.display_name)
     return {"token": token}
 
 
@@ -59,7 +59,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not pwd_context.verify(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_access_token(user_id=user.id)
+    token = create_access_token(user_id=user.id, email=user.email, display_name=user.display_name)
     return {"token": token}
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -126,5 +126,5 @@ async def google_callback(
     await db.commit()
     await db.refresh(user)
 
-    jwt_token = create_access_token(user_id=user.id)
+    jwt_token = create_access_token(user_id=user.id, email=user.email, display_name=user.display_name)
     return RedirectResponse(f"/?token={jwt_token}")

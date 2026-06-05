@@ -12,7 +12,7 @@ OVERPASS_URLS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
 ]
-VALID_AMENITIES = {"restaurant", "fast_food", "cafe"}
+VALID_AMENITIES = {"restaurant", "fast_food", "cafe", "bar", "pub", "biergarten", "food_court"}
 
 
 class PlacesClient(Protocol):

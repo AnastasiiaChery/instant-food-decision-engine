@@ -7,11 +7,16 @@ from app.core.config import settings
 ALGORITHM = "HS256"
 
 
-def create_access_token(user_id: int, expire_minutes: int | None = None) -> str:
+def create_access_token(
+    user_id: int,
+    email: str = "",
+    display_name: str | None = None,
+    expire_minutes: int | None = None,
+) -> str:
     minutes = expire_minutes if expire_minutes is not None else settings.jwt_expire_minutes
     expire = datetime.now(UTC) + timedelta(minutes=minutes)
     return jwt.encode(
-        {"sub": str(user_id), "exp": expire},
+        {"sub": str(user_id), "exp": expire, "email": email, "display_name": display_name},
         settings.jwt_secret,
         algorithm=ALGORITHM,
     )

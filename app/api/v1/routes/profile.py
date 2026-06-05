@@ -47,6 +47,13 @@ class UpdateMeRequest(BaseModel):
     display_name: str
 
 
+@router.get("/api/v1/profile/me")
+async def get_me(user: User | None = Depends(get_optional_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return {"id": user.id, "email": user.email, "display_name": user.display_name}
+
+
 @router.put("/api/v1/profile/me")
 async def update_me(
     body: UpdateMeRequest,
@@ -58,4 +65,4 @@ async def update_me(
     user.display_name = body.display_name.strip() or None
     await db.commit()
     await db.refresh(user)
-    return {"display_name": user.display_name}
+    return {"id": user.id, "email": user.email, "display_name": user.display_name}

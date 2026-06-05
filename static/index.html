@@ -95,18 +95,30 @@
       flex-shrink: 0;
     }
 
-    .prefs-link {
-      display: none;
-      width: 30px; height: 30px;
-      align-items: center; justify-content: center;
-      border-radius: 8px;
-      color: var(--text-3);
-      text-decoration: none;
-      font-size: 15px;
-      transition: color 0.15s, background 0.15s;
+    .avatar-btn {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--accent); color: #fff;
+      font-size: 13px; font-weight: 600; border: none;
+      cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.15s; flex-shrink: 0;
     }
-    .prefs-link:hover { color: var(--text-2); background: var(--bg); }
-    .prefs-link.visible { display: flex; }
+    .avatar-btn:hover { opacity: 0.85; }
+
+    .avatar-dropdown {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; box-shadow: var(--shadow-md);
+      min-width: 140px; overflow: hidden; z-index: 300;
+    }
+    .avatar-dd-item {
+      display: block; width: 100%; padding: 10px 14px;
+      text-align: left; font-size: 13px; font-family: inherit;
+      color: var(--text); background: none; border: none;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .avatar-dd-item:hover { background: var(--bg); }
+    .avatar-dd-item.danger { color: #ef4444; }
 
     .auth-btn {
       font-size: 13px;
@@ -255,8 +267,8 @@
 
     .slider-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
     .slider-label { font-size: 12px; color: var(--text-2); white-space: nowrap; }
-    #radiusSlider { flex: 1; accent-color: var(--accent); cursor: pointer; }
-    #radiusVal { font-size: 12px; font-weight: 600; color: var(--accent); min-width: 42px; text-align: right; }
+    #radiusSlider, #planRadiusSlider { flex: 1; accent-color: var(--accent); cursor: pointer; }
+    #radiusVal, #planRadiusVal { font-size: 12px; font-weight: 600; color: var(--accent); min-width: 42px; text-align: right; }
 
     .chips-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
     .chip {
@@ -506,6 +518,15 @@
       border: 1.5px dashed var(--border);
       color: var(--text-3); font-size: 13px; text-align: center; margin-top: 6px;
     }
+    .card-hidden { display: none; }
+    .show-more-btn {
+      width: 100%; padding: 12px;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 10px; color: var(--text-2);
+      font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; margin-top: 4px; transition: border-color 0.15s, color 0.15s;
+    }
+    .show-more-btn:hover { border-color: var(--accent); color: var(--accent); }
 
     /* Map trigger */
     #mapTrigger {
@@ -796,7 +817,13 @@
       <button class="htab" data-mode="plan">Plan</button>
     </div>
     <div class="header-right">
-      <a id="prefsBtn" class="prefs-link" href="/profile/setup" title="My preferences">⚙</a>
+      <div id="userMenu" style="position:relative;display:none">
+        <button id="avatarBtn" class="avatar-btn">?</button>
+        <div id="avatarDropdown" class="avatar-dropdown" style="display:none">
+          <button class="avatar-dd-item" id="ddProfile">Profile</button>
+          <button class="avatar-dd-item danger" id="ddSignOut">Sign out</button>
+        </div>
+      </div>
       <a id="authBtn" class="auth-btn" href="/auth/google">Sign in</a>
     </div>
   </header>
@@ -886,6 +913,13 @@
           <div class="plan-loc-hint" id="plan-loc-set" style="color:var(--green,#16a34a)">
             <span class="loc-dot" style="background:var(--green,#16a34a);animation:none"></span>
             <span id="plan-loc-label">Location set</span>
+          </div>
+        </div>
+        <div class="plan-row">
+          <span class="plan-label">Radius</span>
+          <div class="slider-row" style="flex:1;margin-top:0">
+            <input id="planRadiusSlider" type="range" min="0.5" max="3" step="0.5" value="1.5" />
+            <span id="planRadiusVal">1.5 km</span>
           </div>
         </div>
         <button id="planBtn">Plan my dinner →</button>
@@ -990,6 +1024,7 @@
             <div class="drawer-section-label">Email</div>
             <input class="drawer-input" type="email" id="drawerEmail" readonly />
           </div>
+          <div id="drawerProfileStatus" style="font-size:12px;min-height:16px;margin:-4px 0 8px"></div>
           <div class="drawer-section">
             <div class="drawer-section-label">Diet</div>
             <div class="drawer-chips" id="drawerDietChips">
@@ -1018,7 +1053,6 @@
             </div>
           </div>
           <button class="drawer-save" id="drawerSaveBtn">Save changes</button>
-          <button class="drawer-signout" id="drawerSignOut">Sign out</button>
         </div>
 
         <!-- History Panel -->
@@ -1038,11 +1072,17 @@
     function getToken() { return localStorage.getItem(TOKEN_KEY); }
     function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
 
-    function isTokenValid(token) {
+    function parseJwt(token) {
       try {
-        const p = JSON.parse(atob(token.split('.')[1]));
-        return p.exp * 1000 > Date.now();
-      } catch (_) { return false; }
+        const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = b64.padEnd(b64.length + (4 - b64.length % 4) % 4, '=');
+        return JSON.parse(atob(padded));
+      } catch (_) { return null; }
+    }
+
+    function isTokenValid(token) {
+      const p = parseJwt(token);
+      return p ? p.exp * 1000 > Date.now() : false;
     }
 
     const urlParams = new URLSearchParams(location.search);
@@ -1066,26 +1106,48 @@
     (function updateAuthBtn() {
       const token = getToken();
       if (token && !isTokenValid(token)) { localStorage.removeItem(TOKEN_KEY); return; }
-      const btn      = document.getElementById('authBtn');
-      const prefsBtn = document.getElementById('prefsBtn');
-      if (!btn) return;
+      const authBtn  = document.getElementById('authBtn');
+      const userMenu = document.getElementById('userMenu');
+      const avatarBtn = document.getElementById('avatarBtn');
+      const dropdown  = document.getElementById('avatarDropdown');
+
       if (!token) {
-        btn.removeAttribute('href');
-        btn.addEventListener('click', () => openAuthModal('login'));
+        if (authBtn) { authBtn.removeAttribute('href'); authBtn.addEventListener('click', () => openAuthModal('login')); }
+        return;
       }
-      if (token) {
-        try {
-          const p = JSON.parse(atob(token.split('.')[1]));
-          btn.textContent = p.email || 'Signed in';
-        } catch (_) { btn.textContent = 'Signed in'; }
-        btn.removeAttribute('href');
-        btn.classList.add('signed-in');
-        btn.title = 'Sign out';
-        btn.addEventListener('click', openDrawer);
-        if (prefsBtn) prefsBtn.classList.add('visible');
-        const toggleRow = document.getElementById('prefToggleRow');
-        if (toggleRow) toggleRow.classList.add('visible');
+
+      // Logged in: hide Sign in, show avatar menu
+      if (authBtn) authBtn.style.display = 'none';
+      if (userMenu) userMenu.style.display = 'flex';
+
+      const p = parseJwt(token);
+      if (p && avatarBtn) {
+        const name = (p.display_name || p.email || '').trim();
+        avatarBtn.textContent = name ? name[0].toUpperCase() : '?';
       }
+
+      // Toggle dropdown
+      if (avatarBtn && dropdown) {
+        avatarBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          const isOpen = dropdown.style.display !== 'none';
+          dropdown.style.display = isOpen ? 'none' : 'block';
+        });
+        document.addEventListener('click', () => { dropdown.style.display = 'none'; });
+      }
+
+      document.getElementById('ddProfile')?.addEventListener('click', () => {
+        if (dropdown) dropdown.style.display = 'none';
+        openDrawer();
+      });
+      document.getElementById('ddSignOut')?.addEventListener('click', () => {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(ONBOARDED_KEY);
+        location.href = '/';
+      });
+
+      const toggleRow = document.getElementById('prefToggleRow');
+      if (toggleRow) toggleRow.classList.add('visible');
     })();
 
     function useProfile() { return document.getElementById('useProfileToggle')?.checked ?? true; }
@@ -1168,9 +1230,12 @@
     function openDrawer() {
       const token = getToken();
       if (!token) return;
-      const p = JSON.parse(atob(token.split('.')[1]));
+      const p = parseJwt(token) || {};
       document.getElementById('drawerUserName').textContent = p.display_name || p.email || 'User';
       document.getElementById('drawerUserEmail').textContent = p.email || '';
+      // Pre-fill inputs immediately from JWT — API call will overwrite if needed
+      document.getElementById('drawerDisplayName').value = p.display_name || '';
+      document.getElementById('drawerEmail').value = p.email || '';
       document.getElementById('userDrawer').classList.add('open');
       document.body.style.overflow = 'hidden';
       switchDrawerTab('profile');
@@ -1200,7 +1265,7 @@
         const chip = document.createElement('div');
         chip.className = 'drawer-chip active';
         chip.textContent = tag + ' ✕';
-        chip.addEventListener('click', () => { listRef.splice(i, 1); renderTagChips(containerId, listRef, listRef); });
+        chip.addEventListener('click', () => { listRef.splice(i, 1); renderTagChips(containerId, listRef, listRef); updateSaveBtn(); });
         el.appendChild(chip);
       });
     }
@@ -1212,6 +1277,7 @@
       list.push(val);
       input.value = '';
       renderTagChips(containerId, list, list);
+      updateSaveBtn();
     }
 
     document.getElementById('drawerCuisineLikedAdd').addEventListener('click', () => addTag('drawerCuisineLikedInput', drawerLiked, 'drawerCuisinesLiked'));
@@ -1219,27 +1285,80 @@
     document.getElementById('drawerCuisineLikedInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTag('drawerCuisineLikedInput', drawerLiked, 'drawerCuisinesLiked'); });
     document.getElementById('drawerCuisineDislikedInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTag('drawerCuisineDislikedInput', drawerDisliked, 'drawerCuisinesDisliked'); });
 
+    // ── Dirty tracking ──
+    let drawerInitialState = null;
+
+    function getDrawerCurrentState() {
+      return {
+        name:     document.getElementById('drawerDisplayName').value.trim(),
+        diet:     [...document.querySelectorAll('#drawerDietChips .drawer-chip.active')].map(c => c.dataset.diet).sort().join(','),
+        liked:    [...drawerLiked].sort().join(','),
+        disliked: [...drawerDisliked].sort().join(','),
+      };
+    }
+
+    function updateSaveBtn() {
+      const btn = document.getElementById('drawerSaveBtn');
+      if (!btn) return;
+      if (!drawerInitialState) { btn.disabled = true; return; }
+      const cur = getDrawerCurrentState();
+      btn.disabled = cur.name     === drawerInitialState.name &&
+                     cur.diet     === drawerInitialState.diet &&
+                     cur.liked    === drawerInitialState.liked &&
+                     cur.disliked === drawerInitialState.disliked;
+    }
+
+    document.getElementById('drawerDisplayName').addEventListener('input', updateSaveBtn);
+
     document.querySelectorAll('#drawerDietChips .drawer-chip').forEach(chip => {
-      chip.addEventListener('click', () => chip.classList.toggle('active'));
+      chip.addEventListener('click', () => { chip.classList.toggle('active'); updateSaveBtn(); });
     });
 
     async function loadDrawerProfile() {
+      const statusEl = document.getElementById('drawerProfileStatus');
+      drawerInitialState = null;
+      updateSaveBtn();
+      if (statusEl) statusEl.textContent = '';
+
+      let serverError = false;
       try {
-        const prefRes = await fetch('/api/v1/profile/preferences', { headers: authHeaders() });
-        if (!prefRes.ok) return;
-        const prefs = await prefRes.json();
-        const token = getToken();
-        const p = JSON.parse(atob(token.split('.')[1]));
-        document.getElementById('drawerDisplayName').value = p.display_name || '';
-        document.getElementById('drawerEmail').value = p.email || '';
-        document.querySelectorAll('#drawerDietChips .drawer-chip').forEach(chip => {
-          chip.classList.toggle('active', (prefs.diet || []).includes(chip.dataset.diet));
-        });
-        drawerLiked = [...(prefs.cuisines_liked || [])];
-        drawerDisliked = [...(prefs.cuisines_disliked || [])];
-        renderTagChips('drawerCuisinesLiked', drawerLiked, drawerLiked);
-        renderTagChips('drawerCuisinesDisliked', drawerDisliked, drawerDisliked);
-      } catch {}
+        const [meRes, prefRes] = await Promise.all([
+          fetch('/api/v1/profile/me', { headers: authHeaders() }),
+          fetch('/api/v1/profile/preferences', { headers: authHeaders() }),
+        ]);
+
+        if (meRes.ok) {
+          const me = await meRes.json();
+          document.getElementById('drawerUserName').textContent = me.display_name || me.email || 'User';
+          document.getElementById('drawerUserEmail').textContent = me.email || '';
+          document.getElementById('drawerDisplayName').value = me.display_name || '';
+          document.getElementById('drawerEmail').value = me.email || '';
+        } else if (meRes.status !== 404) {
+          serverError = true;
+        }
+
+        // 404 = no prefs yet → treat as empty, not an error
+        if (prefRes.ok) {
+          const prefs = await prefRes.json();
+          document.querySelectorAll('#drawerDietChips .drawer-chip').forEach(chip => {
+            chip.classList.toggle('active', (prefs.diet || []).includes(chip.dataset.diet));
+          });
+          drawerLiked = [...(prefs.cuisines_liked || [])];
+          drawerDisliked = [...(prefs.cuisines_disliked || [])];
+          renderTagChips('drawerCuisinesLiked', drawerLiked, drawerLiked);
+          renderTagChips('drawerCuisinesDisliked', drawerDisliked, drawerDisliked);
+        } else if (prefRes.status !== 404) {
+          serverError = true;
+        }
+      } catch { serverError = true; }
+
+      if (statusEl && serverError) {
+        statusEl.textContent = 'Could not reach server.';
+        statusEl.style.color = '#ef4444';
+      }
+
+      drawerInitialState = getDrawerCurrentState();
+      updateSaveBtn();
     }
 
     document.getElementById('drawerSaveBtn').addEventListener('click', async () => {
@@ -1258,15 +1377,14 @@
             body: JSON.stringify({ diet, cuisines_liked: drawerLiked, cuisines_disliked: drawerDisliked }),
           }),
         ]);
+        const newName = displayName || document.getElementById('drawerEmail').value;
+        document.getElementById('drawerUserName').textContent = newName || 'User';
+        const avatarBtn = document.getElementById('avatarBtn');
+        if (avatarBtn && newName) avatarBtn.textContent = newName[0].toUpperCase();
+        drawerInitialState = getDrawerCurrentState();
         btn.textContent = 'Saved ✓';
-        setTimeout(() => { btn.textContent = 'Save changes'; btn.disabled = false; }, 1500);
-      } catch { btn.disabled = false; }
-    });
-
-    document.getElementById('drawerSignOut').addEventListener('click', () => {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(ONBOARDED_KEY);
-      location.href = '/';
+        setTimeout(() => { btn.textContent = 'Save changes'; updateSaveBtn(); }, 1500);
+      } catch { updateSaveBtn(); }
     });
 
     function relativeTime(isoStr) {
@@ -1283,8 +1401,12 @@
       el.innerHTML = '<div class="history-empty">Loading…</div>';
       try {
         const res = await fetch('/api/v1/history', { headers: authHeaders() });
-        if (!res.ok) { el.innerHTML = '<div class="history-empty">Could not load history.</div>'; return; }
-        const entries = await res.json();
+        // 404 = history endpoint not yet populated, treat as empty
+        if (!res.ok && res.status !== 404) {
+          el.innerHTML = '<div class="history-empty">Could not load history.</div>';
+          return;
+        }
+        const entries = res.ok ? await res.json() : [];
         const favs = entries.filter(e => e.action_type === 'favorite');
         const navs = entries.filter(e => e.action_type === 'navigate');
 
@@ -1485,6 +1607,9 @@
     document.getElementById('radiusSlider').addEventListener('input', function() {
       document.getElementById('radiusVal').textContent = this.value + ' km';
     });
+    document.getElementById('planRadiusSlider').addEventListener('input', function() {
+      document.getElementById('planRadiusVal').textContent = this.value + ' km';
+    });
 
     const activeChips = new Set();
     document.querySelectorAll('#panel-preferences .chip').forEach(chip => {
@@ -1599,8 +1724,23 @@
       showMapTrigger(places.length);
     }
 
+    const TOP_N = 5;
+
+    function addShowMoreBtn(total) {
+      const hidden = total - TOP_N;
+      const btn = document.createElement('button');
+      btn.className = 'show-more-btn';
+      btn.textContent = `Show ${hidden} more place${hidden !== 1 ? 's' : ''}`;
+      btn.addEventListener('click', () => {
+        cardsGrid.querySelectorAll('.card-hidden').forEach(c => c.classList.remove('card-hidden'));
+        btn.remove();
+      });
+      cardsGrid.appendChild(btn);
+    }
+
     // ── Render: ranking ──
-    function applyRanking({ places: ranked, suggest_expand }) {
+    function applyRanking(ranked) {
+      ranked = [...ranked].sort((a, b) => b.match_score - a.match_score || a.distance_m - b.distance_m);
       const keepKeys = new Set(ranked.map(placeKey));
       [...cardMap.entries()].forEach(([key, { card, markerIdx }]) => {
         if (!keepKeys.has(key)) { card.remove(); leafletMarkers[markerIdx]?.remove(); }
@@ -1610,7 +1750,7 @@
         if (!entry) return;
         const { card, markerIdx } = entry;
         const isTop = i === 0;
-        card.className = 'card' + (isTop ? ' top' : '');
+        card.className = 'card' + (isTop ? ' top' : '') + (i >= TOP_N ? ' card-hidden' : '');
         const rankEl = card.querySelector('.rank-badge');
         if (rankEl) rankEl.textContent = i + 1;
         const scoreEl = card.querySelector('.score-pill');
@@ -1623,14 +1763,7 @@
         cardsGrid.appendChild(card);
         leafletMarkers[markerIdx]?.setIcon(pinIcon(i, isTop));
       });
-      if (suggest_expand) {
-        const hint = document.createElement('div');
-        hint.className = 'expand-hint';
-        hint.textContent = ranked.length === 0
-          ? 'No matching places nearby. Try increasing the radius or broadening your query.'
-          : 'Few matches found. Try a wider radius.';
-        cardsGrid.appendChild(hint);
-      }
+      if (ranked.length > TOP_N) addShowMoreBtn(ranked.length);
     }
 
     // ── Render: autopilot rec ──
@@ -1678,7 +1811,7 @@
         const { place, reason, scenario } = rec;
         const cuisine = place.cuisine ? ` · ${place.cuisine}` : '';
         const card = document.createElement('div');
-        card.className = 'card' + (i === 0 ? ' top' : '');
+        card.className = 'card' + (i === 0 ? ' top' : '') + (i >= TOP_N ? ' card-hidden' : '');
         card.style.animationDelay = `${i * 0.07}s`;
         card.innerHTML = `
           <div class="card-head">
@@ -1705,6 +1838,7 @@
           leafletMarkers.push(marker);
         }
       });
+      if (recs.length > TOP_N) addShowMoreBtn(recs.length);
       showMapTrigger(recs.length);
     }
 
@@ -1776,7 +1910,7 @@
           headers: authHeaders(),
           body: JSON.stringify({
             mode: 'preferences', lat, lng, query,
-            radius_km: parseFloat(document.getElementById('radiusSlider').value),
+            radius_m: Math.round(parseFloat(document.getElementById('radiusSlider').value) * 1000),
             use_profile: useProfile(),
           }),
         });
@@ -1785,11 +1919,16 @@
         await consumeSSE(res, (evType, payload) => {
           if (evType === 'places') {
             renderPlaces(payload);
-            setStatus(`Found ${payload.length} places — getting AI analysis…`, 'loading');
+            setStatus('Ranking results…', 'loading');
           } else if (evType === 'ranked') {
             applyRanking(payload);
-            const count = (payload.places || []).length;
-            setStatus(count > 0 ? `${count} relevant results` : 'No matches — try a wider radius', count > 0 ? 'done' : 'error');
+            const visCount = Math.min(payload.length, TOP_N);
+            setStatus(
+              payload.length === 0 ? 'No matches — try a wider radius or different query'
+                : payload.length > TOP_N ? `Top ${visCount} of ${payload.length} results`
+                : `${payload.length} result${payload.length !== 1 ? 's' : ''} found`,
+              payload.length > 0 ? 'done' : 'error'
+            );
           } else if (evType === 'error') {
             setStatus(payload.detail || 'Something went wrong.', 'error');
           }
@@ -1901,7 +2040,8 @@
       const query    = document.getElementById('planQuery').value.trim() || null;
 
       try {
-        const body = { mode: 'plan', lat, lng, when, group_size: group, occasion, use_profile: useProfile() };
+        const body = { mode: 'plan', lat, lng, when, group_size: group, occasion, use_profile: useProfile(),
+          radius_m: Math.round(parseFloat(document.getElementById('planRadiusSlider').value) * 1000) };
         if (query) body.query = query;
         const res = await fetch('/api/v1/search', {
           method: 'POST',
@@ -1914,7 +2054,19 @@
           if (evType === 'searching') {
             setStatus('AI planning your dinner…', 'loading');
           } else if (evType === 'places') {
-            setStatus(`Evaluating ${(payload.places || payload).length} options…`, 'loading');
+            setStatus('Finding best options…', 'loading');
+          } else if (evType === 'ranked') {
+            const sorted = [...payload].sort((a, b) => b.match_score - a.match_score || a.distance_m - b.distance_m);
+            const recommendations = sorted.map(p => ({ place: p, reason: p.reason, scenario: null }));
+            renderPlanRecommendations({ recommendations });
+            const visible = Math.min(recommendations.length, TOP_N);
+            const total = recommendations.length;
+            setStatus(
+              total === 0 ? 'No matching places nearby — try a wider radius or different query'
+                : total > TOP_N ? `Top ${visible} of ${total} options`
+                : `${total} option${total !== 1 ? 's' : ''} found`,
+              total > 0 ? 'done' : 'error'
+            );
           } else if (evType === 'recommendations') {
             renderPlanRecommendations(payload);
             setStatus(`${(payload.recommendations || []).length} curated options`, 'done');

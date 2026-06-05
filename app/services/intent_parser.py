@@ -17,8 +17,8 @@ _PARSE_INTENT_TOOL = {
             "properties": {
                 "venue_types": {
                     "type": "array",
-                    "items": {"type": "string", "enum": ["restaurant", "fast_food", "cafe"]},
-                    "description": "Types of venues the user is looking for.",
+                    "items": {"type": "string", "enum": ["restaurant", "fast_food", "cafe", "bar", "pub", "biergarten", "food_court"]},
+                    "description": "OSM amenity types that match the request. Use 'bar' for cocktails/drinks/wine bars, 'pub' for beer/pub atmosphere, 'biergarten' for outdoor beer gardens, 'restaurant' for sit-down dining, 'fast_food' for quick meals, 'cafe' for coffee/light bites.",
                 },
                 "mood": {
                     "type": "string",
@@ -38,14 +38,19 @@ _PARSE_INTENT_TOOL = {
                     "type": "string",
                     "description": "Whether the user needs somewhere open right now or is planning ahead.",
                 },
+                "cuisine": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Specific cuisine types requested (e.g. 'ukrainian', 'italian', 'sushi', 'chinese'). Empty if not specified.",
+                },
             },
-            "required": ["venue_types", "mood", "price_level", "features", "time_sensitivity"],
+            "required": ["venue_types", "mood", "price_level", "features", "time_sensitivity", "cuisine"],
         },
     },
 }
 
 _DEFAULT_INTENT = PlaceIntent(
-    venue_types=["restaurant", "cafe"],
+    venue_types=["restaurant", "cafe", "bar", "pub"],
     mood="casual",
     price_level=[1, 2, 3],
     features=[],

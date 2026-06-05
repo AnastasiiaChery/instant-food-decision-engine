@@ -40,7 +40,7 @@ def _nav_url(place: Place) -> str:
 
 
 def _fallback_ranking(places: list[Place]) -> list[RankedPlace]:
-    return [
+    ranked = [
         RankedPlace(
             name=p.name,
             lat=p.lat,
@@ -52,8 +52,10 @@ def _fallback_ranking(places: list[Place]) -> list[RankedPlace]:
             reason=f"Nearby {p.amenity} at ~{round(p.distance_m)}m.",
             nav_url=_nav_url(p),
         )
-        for p in sorted(places, key=lambda x: x.distance_m)
+        for p in places
     ]
+    ranked.sort(key=lambda r: (-r.match_score, r.distance_m))
+    return ranked
 
 
 async def rank_places(
@@ -132,4 +134,6 @@ async def rank_places(
                 )
             )
 
+    # relevance first, distance as tiebreaker
+    result.sort(key=lambda r: (-r.match_score, r.distance_m))
     return result
