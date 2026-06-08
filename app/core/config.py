@@ -4,9 +4,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
+    # Groq: LLM provider (llama via OpenAI-compatible API)
     groq_api_key: str = ""
     ai_base_url: str = "https://api.groq.com/openai/v1"
     ai_model: str = "llama-3.3-70b-versatile"
+
+    # LangSmith: optional observability platform for LLM tracing (smith.langchain.com).
+    # When langsmith_api_key is set, all LLM calls (intent parsing, ranking, planning)
+    # are traced automatically — prompts, responses, latency, token usage.
+    # Leave empty to disable tracing entirely; the app works fine without it.
+    langsmith_api_key: str = ""
+    langsmith_tracing: str = "true"
+    langsmith_project: str = "instant-food-decision-engine"
 
     redis_url: str = ""
     port: int = 8000

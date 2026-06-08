@@ -1,9 +1,10 @@
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import Depends, Request
-from openai import AsyncOpenAI
+from langchain_groq import ChatGroq
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,16 +14,30 @@ from app.infrastructure.database import get_db
 from app.models.user import User
 
 
+def configure_langsmith() -> None:
+    """Enable LangSmith tracing if an API key is configured.
+
+    LangSmith is a separate observability product by the LangChain company.
+    The LangChain library reads a fixed set of env var names (LANGCHAIN_API_KEY,
+    LANGCHAIN_TRACING_V2, LANGCHAIN_PROJECT) to activate tracing automatically —
+    we bridge our clearly-named settings to those internal names here.
+    """
+    if settings.langsmith_api_key:
+        os.environ.setdefault("LANGCHAIN_API_KEY", settings.langsmith_api_key)
+        os.environ.setdefault("LANGCHAIN_TRACING_V2", settings.langsmith_tracing)
+        os.environ.setdefault("LANGCHAIN_PROJECT", settings.langsmith_project)
+
+
 @asynccontextmanager
 async def lifespan_http_client() -> AsyncIterator[httpx.AsyncClient]:
     async with httpx.AsyncClient(timeout=10.0) as client:
         yield client
 
 
-def get_ai_client() -> AsyncOpenAI:
-    return AsyncOpenAI(
+def get_ai_client() -> ChatGroq:
+    return ChatGroq(
         api_key=settings.groq_api_key or "no-key",
-        base_url=settings.ai_base_url,
+        model=settings.ai_model,
     )
 
 

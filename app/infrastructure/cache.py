@@ -19,29 +19,29 @@ async def _get_client() -> Any:
     return _redis_client
 
 
-def _cache_key(lat: float, lng: float, venue_types: list[str]) -> str:
+def _cache_key(lat: float, lng: float, venue_types: list[str], radius_m: int) -> str:
     lat_r = round(lat, 3)
     lng_r = round(lng, 3)
     types_str = ",".join(sorted(venue_types))
-    return f"places:{lat_r}:{lng_r}:{types_str}"
+    return f"places:{lat_r}:{lng_r}:{radius_m}:{types_str}"
 
 
-async def get_cached(lat: float, lng: float, venue_types: list[str]) -> list[dict] | None:
+async def get_cached(lat: float, lng: float, venue_types: list[str], radius_m: int) -> list[dict] | None:
     client = await _get_client()
     if client is None:
         return None
     try:
-        raw = await client.get(_cache_key(lat, lng, venue_types))
+        raw = await client.get(_cache_key(lat, lng, venue_types, radius_m))
         return json.loads(raw) if raw else None
     except Exception:
         return None
 
 
-async def set_cached(lat: float, lng: float, venue_types: list[str], data: list[dict]) -> None:
+async def set_cached(lat: float, lng: float, venue_types: list[str], radius_m: int, data: list[dict]) -> None:
     client = await _get_client()
     if client is None:
         return
     try:
-        await client.setex(_cache_key(lat, lng, venue_types), CACHE_TTL_SECONDS, json.dumps(data))
+        await client.setex(_cache_key(lat, lng, venue_types, radius_m), CACHE_TTL_SECONDS, json.dumps(data))
     except Exception:
         pass

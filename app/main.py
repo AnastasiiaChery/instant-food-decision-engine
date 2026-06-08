@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, Response
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from app.core.deps import configure_langsmith, get_ai_client
 from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.decide import router as decide_router
 from app.api.v1.routes.history import router as history_router
@@ -20,6 +21,8 @@ INDEX_FILE = PROJECT_ROOT / "static" / "index.html"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_langsmith()
+    app.state.ai_client = get_ai_client()
     async with httpx.AsyncClient(timeout=15.0) as client:
         app.state.http_client = client
         yield

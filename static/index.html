@@ -228,63 +228,10 @@
     #autopilotBtn:active:not(:disabled) { transform: scale(0.98); }
     #autopilotBtn:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
 
-    /* Preferences */
-    #panel-preferences { padding: 20px 0 16px; }
-
-    .search-row { display: flex; gap: 8px; align-items: stretch; }
-
-    #queryInput {
-      flex: 1; min-width: 0;
-      padding: 10px 14px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 14px;
-      color: var(--text);
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    #queryInput::placeholder { color: var(--text-3); }
-    #queryInput:focus { border-color: var(--accent); }
-
-    #findBtn {
-      flex-shrink: 0;
-      padding: 10px 18px;
-      background: var(--accent);
-      color: #fff;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: opacity 0.15s;
-    }
-    #findBtn:hover:not(:disabled) { opacity: 0.88; }
-    #findBtn:disabled { opacity: 0.45; cursor: default; }
-
     .slider-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
     .slider-label { font-size: 12px; color: var(--text-2); white-space: nowrap; }
-    #radiusSlider, #planRadiusSlider { flex: 1; accent-color: var(--accent); cursor: pointer; }
-    #radiusVal, #planRadiusVal { font-size: 12px; font-weight: 600; color: var(--accent); min-width: 42px; text-align: right; }
-
-    .chips-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-    .chip {
-      padding: 5px 12px;
-      font-size: 12px; font-weight: 500;
-      border: 1.5px solid var(--border);
-      border-radius: 20px;
-      background: var(--surface);
-      color: var(--text-2);
-      cursor: pointer;
-      user-select: none;
-      font-family: 'DM Sans', sans-serif;
-      transition: all 0.15s;
-    }
-    .chip:hover { border-color: var(--accent); color: var(--accent); }
-    .chip.active { background: var(--accent-muted); border-color: var(--accent); color: var(--accent); }
+    #planRadiusSlider { flex: 1; accent-color: var(--accent); cursor: pointer; }
+    #planRadiusVal { font-size: 12px; font-weight: 600; color: var(--accent); min-width: 42px; text-align: right; }
 
     /* Plan */
     #panel-plan { padding: 20px 0 16px; }
@@ -356,6 +303,24 @@
       animation: pulse 1.4s ease-in-out infinite;
     }
     @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+
+    /* Address autocomplete */
+    .addr-suggestions {
+      display: none;
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; box-shadow: var(--shadow-md);
+      z-index: 100; overflow: hidden;
+    }
+    .addr-suggestion {
+      padding: 9px 12px; cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    .addr-suggestion:last-child { border-bottom: none; }
+    .addr-suggestion:hover { background: var(--bg); }
+    .addr-suggestion-name { font-size: 13px; font-weight: 500; color: var(--text); }
+    .addr-suggestion-detail { font-size: 11px; color: var(--text-3); margin-top: 1px; }
 
     /* Profile toggle */
     .pref-toggle-row {
@@ -483,6 +448,7 @@
       box-shadow: 0 4px 24px rgba(36,85,212,0.10);
       animation: fadeUp 0.3s ease both;
     }
+    .rec-card.swapping { opacity: 0; transform: translateY(6px); transition: opacity 0.18s, transform 0.18s; }
     .rec-badge {
       display: inline-block;
       font-size: 10px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase;
@@ -491,11 +457,24 @@
     }
     .rec-name {
       font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px;
-      line-height: 1.2; letter-spacing: -0.3px; margin-bottom: 4px;
+      line-height: 1.2; letter-spacing: -0.3px; margin-bottom: 6px;
     }
     .rec-meta { font-size: 13px; color: var(--text-2); margin-bottom: 10px; }
+    .rec-signals {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;
+    }
+    .rec-signal {
+      display: inline-flex; align-items: center;
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 12px; font-weight: 500;
+      background: var(--bg); border: 1px solid var(--border); color: var(--text-2);
+    }
+    .rec-why-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.7px; text-transform: uppercase;
+      color: var(--text-3); margin-bottom: 6px;
+    }
     .rec-reason {
-      font-size: 14px; color: var(--text-2); line-height: 1.65; font-style: italic;
+      font-size: 13px; color: var(--text-2); line-height: 1.6;
       border-left: 3px solid var(--accent-muted); padding-left: 12px; margin-bottom: 16px;
     }
     .rec-actions { display: flex; gap: 10px; align-items: center; }
@@ -813,7 +792,6 @@
     <a class="brand" href="/">instant<em>food</em></a>
     <div class="header-tabs">
       <button class="htab active" data-mode="autopilot">Autopilot</button>
-      <button class="htab" data-mode="preferences">Find</button>
       <button class="htab" data-mode="plan">Plan</button>
     </div>
     <div class="header-right">
@@ -830,7 +808,6 @@
 
   <div class="mode-tabs">
     <button class="mode-tab active" data-mode="autopilot">Autopilot</button>
-    <button class="mode-tab" data-mode="preferences">Find</button>
     <button class="mode-tab" data-mode="plan">Plan</button>
   </div>
 
@@ -839,26 +816,6 @@
     <div class="mode-panel active" id="panel-autopilot">
       <p class="autopilot-label">Tired of deciding? Let AI pick for you.</p>
       <button id="autopilotBtn">Find me food →</button>
-    </div>
-
-    <div class="mode-panel" id="panel-preferences">
-      <div class="search-row">
-        <input id="queryInput" type="text" placeholder="Something cozy and affordable…" autocomplete="off" />
-        <button id="findBtn">Find →</button>
-      </div>
-      <div class="slider-row">
-        <span class="slider-label">Radius</span>
-        <input id="radiusSlider" type="range" min="0.5" max="3" step="0.5" value="1.5" />
-        <span id="radiusVal">1.5 km</span>
-      </div>
-      <div class="chips-row">
-        <div class="chip" data-tag="open now">Open now</div>
-        <div class="chip" data-tag="cheap">Cheap</div>
-        <div class="chip" data-tag="terrace">Terrace</div>
-        <div class="chip" data-tag="cozy">Cozy</div>
-        <div class="chip" data-tag="quick bite">Quick bite</div>
-        <div class="chip" data-tag="outdoor seating">Outdoor</div>
-      </div>
     </div>
 
     <div class="mode-panel" id="panel-plan">
@@ -904,8 +861,10 @@
             <div class="plan-chip" data-group="loc" data-val="map">🗺 Click on map</div>
           </div>
           <div class="plan-loc-input-wrap" id="plan-addr-wrap">
-            <input type="text" id="plan-addr-input" class="plan-text-input" placeholder="Enter address or place name…" style="flex:1">
-            <button id="plan-addr-btn" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">Search</button>
+            <div style="position:relative;flex:1">
+              <input type="text" id="plan-addr-input" class="plan-text-input" placeholder="Type address or place name…" autocomplete="off">
+              <div id="plan-addr-suggestions" class="addr-suggestions"></div>
+            </div>
           </div>
           <div class="plan-loc-hint" id="plan-map-hint">
             <span class="loc-dot"></span>Click anywhere on the map to set location
@@ -922,7 +881,7 @@
             <span id="planRadiusVal">1.5 km</span>
           </div>
         </div>
-        <button id="planBtn">Plan my dinner →</button>
+        <button id="planBtn">Find options →</button>
       </div>
     </div>
 
@@ -1085,6 +1044,14 @@
       return p ? p.exp * 1000 > Date.now() : false;
     }
 
+    function escHtml(s) {
+      return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function safeUrl(url) {
+      try { const u = new URL(url); return (u.protocol === 'https:' || u.protocol === 'http:') ? url : '#'; }
+      catch { return '#'; }
+    }
+
     const urlParams = new URLSearchParams(location.search);
     const urlToken  = urlParams.get('token');
     if (urlToken) {
@@ -1211,7 +1178,7 @@
       const password = document.getElementById('registerPassword').value;
       const errEl = document.getElementById('authError');
       if (!email || !password) { errEl.textContent = 'Email and password are required.'; return; }
-      if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+      if (password.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; return; }
       const btn = document.getElementById('registerSubmit');
       btn.disabled = true;
       try {
@@ -1428,9 +1395,9 @@
             const entry = document.createElement('div');
             entry.className = 'history-entry';
             entry.innerHTML = `
-              <div class="history-entry-name">${e.place_name}</div>
-              <div class="history-entry-meta">${e.place_type} · ${relativeTime(e.chosen_at)}</div>
-              <a class="history-entry-nav" href="${e.nav_url}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+              <div class="history-entry-name">${escHtml(e.place_name)}</div>
+              <div class="history-entry-meta">${escHtml(e.place_type)} · ${escHtml(relativeTime(e.chosen_at))}</div>
+              <a class="history-entry-nav" href="${escHtml(safeUrl(e.nav_url))}" target="_blank" rel="noopener noreferrer">Navigate →</a>
             `;
             el.appendChild(entry);
           });
@@ -1596,6 +1563,7 @@
       cardMap.clear();
       clearMarkers();
       lastAutopilotPlace = null;
+      _recFallback = null;
       showMapTrigger(0);
       setStatus('Ready');
     }
@@ -1604,20 +1572,8 @@
       b.addEventListener('click', () => switchMode(b.dataset.mode));
     });
 
-    document.getElementById('radiusSlider').addEventListener('input', function() {
-      document.getElementById('radiusVal').textContent = this.value + ' km';
-    });
     document.getElementById('planRadiusSlider').addEventListener('input', function() {
       document.getElementById('planRadiusVal').textContent = this.value + ' km';
-    });
-
-    const activeChips = new Set();
-    document.querySelectorAll('#panel-preferences .chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const tag = chip.dataset.tag;
-        if (activeChips.has(tag)) { activeChips.delete(tag); chip.classList.remove('active'); }
-        else { activeChips.add(tag); chip.classList.add('active'); }
-      });
     });
 
     document.querySelectorAll('.plan-chip').forEach(chip => {
@@ -1673,9 +1629,9 @@
           e => {
             if (e.code === 1) reject(new Error('Location permission denied.'));
             else if (e.code === 2) reject(new Error('Location unavailable.'));
-            else reject(new Error('Location timed out.'));
+            else reject(new Error('Location timed out. Please use Plan mode and enter your address manually.'));
           },
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+          { enableHighAccuracy: false, timeout: 30000, maximumAge: 300000 },
         );
       });
     }
@@ -1692,16 +1648,16 @@
         const card  = document.createElement('div');
         card.className = 'card' + (isTop ? ' top' : '');
         card.style.animationDelay = `${i * 0.05}s`;
-        const cuisine = p.cuisine ? ` · ${p.cuisine}` : '';
+        const cuisine = p.cuisine ? ` · ${escHtml(p.cuisine)}` : '';
         card.innerHTML = `
           <div class="card-head">
             <div class="rank-badge">${i + 1}</div>
-            <div class="card-name">${p.name || 'Unnamed'}</div>
+            <div class="card-name">${escHtml(p.name || 'Unnamed')}</div>
             <div class="score-pill"></div>
           </div>
-          <div class="card-meta">${Math.round(p.distance_m)}m · ${p.amenity || 'food'}${cuisine}</div>
+          <div class="card-meta">${Math.round(p.distance_m)}m · ${escHtml(p.amenity || 'food')}${cuisine}</div>
           <div class="card-reason"><div class="skel"></div><div class="skel short"></div></div>
-          <a class="card-nav" href="${p.nav_url}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+          <a class="card-nav" href="${escHtml(safeUrl(p.nav_url))}" target="_blank" rel="noopener noreferrer">Navigate →</a>
         `;
         cardsGrid.appendChild(card);
         const getNotes = addNoteWidget(card, p);
@@ -1709,7 +1665,7 @@
         card.querySelector('.card-nav').addEventListener('click', () => recordNavigate(p, getNotes()));
 
         const marker = L.marker([p.lat, p.lon], { icon: pinIcon(i, isTop) })
-          .addTo(map).bindPopup(`<strong>${p.name}</strong><br>${Math.round(p.distance_m)}m`);
+          .addTo(map).bindPopup(`<strong>${escHtml(p.name)}</strong><br>${Math.round(p.distance_m)}m`);
         marker.on('click', () => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
         card.addEventListener('click', e => {
           if (e.target.closest('.card-nav')) return;
@@ -1759,7 +1715,7 @@
           scoreEl.classList.add('show');
         }
         const reasonEl = card.querySelector('.card-reason');
-        if (reasonEl) reasonEl.innerHTML = p.reason || '';
+        if (reasonEl) reasonEl.textContent = p.reason || '';
         cardsGrid.appendChild(card);
         leafletMarkers[markerIdx]?.setIcon(pinIcon(i, isTop));
       });
@@ -1767,34 +1723,62 @@
     }
 
     // ── Render: autopilot rec ──
-    function renderRecommendation(data) {
-      const { place, reason } = data;
-      const cuisine = place.cuisine ? ` · ${place.cuisine}` : '';
+    let _recFallback = null; // pre-loaded fallback from the recommendation event
+
+    function renderRecommendation(data, animate = true) {
+      const { place, reason, signals = [], fallback_place, fallback_signals = [] } = data;
+      _recFallback = fallback_place
+        ? { place: fallback_place, reason: fallback_place.reason, signals: fallback_signals, fallback_place: null, fallback_signals: [] }
+        : null;
+
+      const cuisine = place.cuisine ? ` · ${escHtml(place.cuisine)}` : '';
       cardsGrid.innerHTML = '';
       cardMap.clear();
       clearMarkers();
       initMap();
 
+      const signalHtml = signals.length
+        ? `<div class="rec-signals">${signals.map(s => `<span class="rec-signal">${escHtml(s)}</span>`).join('')}</div>`
+        : '';
+
       const card = document.createElement('div');
       card.className = 'rec-card';
+      if (animate) card.style.animation = 'fadeUp 0.3s ease both';
       card.innerHTML = `
         <div class="rec-badge">AI pick</div>
-        <div class="rec-name">${place.name || 'Unnamed'}</div>
-        <div class="rec-meta">${Math.round(place.distance_m)}m · ${place.amenity || 'food'}${cuisine}</div>
-        <div class="rec-reason">${reason}</div>
+        <div class="rec-name">${escHtml(place.name || 'Unnamed')}</div>
+        <div class="rec-meta">${escHtml(place.amenity || 'food')}${cuisine}</div>
+        ${signalHtml}
+        <div class="rec-why-label">Why this?</div>
+        <div class="rec-reason"></div>
         <div class="rec-actions">
-          <a class="rec-nav" href="${place.nav_url}" target="_blank" rel="noopener noreferrer">Navigate →</a>
-          <button class="rec-another">Try another</button>
+          <a class="rec-nav" href="${escHtml(safeUrl(place.nav_url))}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+          <button class="rec-another">${_recFallback ? 'Show another option' : 'Try again'}</button>
         </div>
       `;
+      card.querySelector('.rec-reason').textContent = reason || '';
       cardsGrid.appendChild(card);
       const getNotes = addNoteWidget(card, place);
       addFavButton(card, place);
       card.querySelector('.rec-nav').addEventListener('click', () => recordNavigate(place, getNotes()));
-      card.querySelector('.rec-another').addEventListener('click', doAutopilot);
+      card.querySelector('.rec-another').addEventListener('click', () => {
+        if (_recFallback) {
+          lastAutopilotPlace = place.name;
+          const fb = _recFallback;
+          _recFallback = null;
+          // brief fade-out then swap
+          card.classList.add('swapping');
+          setTimeout(() => {
+            renderRecommendation(fb, false);
+            setStatus('Here\'s another option', 'done');
+          }, 180);
+        } else {
+          doAutopilot();
+        }
+      });
 
       const marker = L.marker([place.lat, place.lon], { icon: pinIcon(0, true) })
-        .addTo(map).bindPopup(`<strong>${place.name}</strong><br>${Math.round(place.distance_m)}m`);
+        .addTo(map).bindPopup(`<strong>${escHtml(place.name)}</strong><br>${Math.round(place.distance_m)}m`);
       leafletMarkers.push(marker);
       showMapTrigger(1);
     }
@@ -1809,20 +1793,21 @@
 
       recs.forEach((rec, i) => {
         const { place, reason, scenario } = rec;
-        const cuisine = place.cuisine ? ` · ${place.cuisine}` : '';
+        const cuisine = place.cuisine ? ` · ${escHtml(place.cuisine)}` : '';
         const card = document.createElement('div');
         card.className = 'card' + (i === 0 ? ' top' : '') + (i >= TOP_N ? ' card-hidden' : '');
         card.style.animationDelay = `${i * 0.07}s`;
         card.innerHTML = `
           <div class="card-head">
             <div class="rank-badge">${i + 1}</div>
-            <div class="card-name">${place.name || 'Unnamed'}</div>
-            ${scenario ? `<div class="score-pill show">${scenario}</div>` : ''}
+            <div class="card-name">${escHtml(place.name || 'Unnamed')}</div>
+            ${scenario ? `<div class="score-pill show">${escHtml(scenario)}</div>` : ''}
           </div>
-          <div class="card-meta">${Math.round(place.distance_m)}m · ${place.amenity || 'food'}${cuisine}</div>
-          <div class="card-reason">${reason || ''}</div>
-          <a class="card-nav" href="${place.nav_url}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+          <div class="card-meta">${Math.round(place.distance_m)}m · ${escHtml(place.amenity || 'food')}${cuisine}</div>
+          <div class="card-reason"></div>
+          <a class="card-nav" href="${escHtml(safeUrl(place.nav_url))}" target="_blank" rel="noopener noreferrer">Navigate →</a>
         `;
+        card.querySelector('.card-reason').textContent = reason || '';
         cardsGrid.appendChild(card);
         const getNotes = addNoteWidget(card, place);
         addFavButton(card, place);
@@ -1834,7 +1819,7 @@
         });
         if (place.lat && place.lon) {
           const marker = L.marker([place.lat, place.lon], { icon: pinIcon(i, i === 0) })
-            .addTo(map).bindPopup(`<strong>${place.name}</strong><br>${Math.round(place.distance_m)}m`);
+            .addTo(map).bindPopup(`<strong>${escHtml(place.name)}</strong><br>${Math.round(place.distance_m)}m`);
           leafletMarkers.push(marker);
         }
       });
@@ -1886,70 +1871,16 @@
       }
     }
 
-    // ── Preferences ──
-    async function doPreferences() {
-      const btn = document.getElementById('findBtn');
-      btn.disabled = true;
-      cardsGrid.innerHTML = '';
-      cardMap.clear();
-      clearMarkers();
-      showMapTrigger(0);
-      setStatus('Requesting location…', 'loading');
-
-      let lat, lng;
-      try { ({ lat, lng } = await getLocation()); }
-      catch (err) { setStatus(err.message, 'error'); btn.disabled = false; return; }
-      placeUserPin(lat, lng);
-
-      let query = document.getElementById('queryInput').value.trim() || 'something good nearby';
-      if (activeChips.size > 0) query += ', ' + [...activeChips].join(', ');
-
-      try {
-        const res = await fetch('/api/v1/search', {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify({
-            mode: 'preferences', lat, lng, query,
-            radius_m: Math.round(parseFloat(document.getElementById('radiusSlider').value) * 1000),
-            use_profile: useProfile(),
-          }),
-        });
-        if (!res.ok) { setStatus(`Error ${res.status}`, 'error'); btn.disabled = false; return; }
-
-        await consumeSSE(res, (evType, payload) => {
-          if (evType === 'places') {
-            renderPlaces(payload);
-            setStatus('Ranking results…', 'loading');
-          } else if (evType === 'ranked') {
-            applyRanking(payload);
-            const visCount = Math.min(payload.length, TOP_N);
-            setStatus(
-              payload.length === 0 ? 'No matches — try a wider radius or different query'
-                : payload.length > TOP_N ? `Top ${visCount} of ${payload.length} results`
-                : `${payload.length} result${payload.length !== 1 ? 's' : ''} found`,
-              payload.length > 0 ? 'done' : 'error'
-            );
-          } else if (evType === 'error') {
-            setStatus(payload.detail || 'Something went wrong.', 'error');
-          }
-        });
-      } catch (err) {
-        setStatus(`Error: ${err.message}`, 'error');
-      } finally {
-        btn.disabled = false;
-      }
-    }
-
     // ── Plan location picker ──
     let planCustomLocation = null;   // {lat, lng, label}
     let planMapClickActive = false;
     let planCustomMarker   = null;
 
     function setPlanLocation(lat, lng, label) {
+      initMap();
       planCustomLocation = { lat, lng };
       document.getElementById('plan-loc-label').textContent = label;
       document.getElementById('plan-loc-set').classList.add('visible');
-      // drop a marker on the map
       if (planCustomMarker) planCustomMarker.remove();
       planCustomMarker = L.marker([lat, lng], {
         icon: L.divIcon({
@@ -1987,29 +1918,56 @@
       });
     });
 
-    // address geocoding via Nominatim
-    async function geocodeAddress(query) {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
-      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-      const data = await res.json();
-      if (!data.length) throw new Error('Address not found');
-      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), label: data[0].display_name.split(',').slice(0,2).join(',') };
+    // address autocomplete via Nominatim
+    const addrInput = document.getElementById('plan-addr-input');
+    const addrSugg  = document.getElementById('plan-addr-suggestions');
+    let addrDebounce = null;
+
+    function closeSuggestions() {
+      addrSugg.style.display = 'none';
+      addrSugg.innerHTML = '';
     }
 
-    document.getElementById('plan-addr-btn').addEventListener('click', async () => {
-      const q = document.getElementById('plan-addr-input').value.trim();
-      if (!q) return;
-      const btn = document.getElementById('plan-addr-btn');
-      btn.textContent = '…'; btn.disabled = true;
-      try {
-        const { lat, lng, label } = await geocodeAddress(q);
-        setPlanLocation(lat, lng, label);
-      } catch { setStatus('Address not found. Try a different query.', 'error'); }
-      finally { btn.textContent = 'Search'; btn.disabled = false; }
+    function showSuggestions(results) {
+      if (!results.length) { closeSuggestions(); return; }
+      addrSugg.innerHTML = '';
+      results.forEach(r => {
+        const parts = r.display_name.split(', ');
+        const name   = parts.slice(0, 2).join(', ');
+        const detail = parts.slice(2, 4).join(', ');
+        const item = document.createElement('div');
+        item.className = 'addr-suggestion';
+        item.innerHTML = `<div class="addr-suggestion-name">${escHtml(name)}</div>${detail ? `<div class="addr-suggestion-detail">${escHtml(detail)}</div>` : ''}`;
+        item.addEventListener('mousedown', e => {
+          e.preventDefault();
+          addrInput.value = name;
+          setPlanLocation(parseFloat(r.lat), parseFloat(r.lon), name);
+          closeSuggestions();
+        });
+        addrSugg.appendChild(item);
+      });
+      addrSugg.style.display = 'block';
+    }
+
+    addrInput.addEventListener('input', () => {
+      clearTimeout(addrDebounce);
+      const val = addrInput.value.trim();
+      if (val.length < 3) { closeSuggestions(); return; }
+      addrDebounce = setTimeout(async () => {
+        try {
+          const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&limit=5`;
+          const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+          showSuggestions(await res.json());
+        } catch { closeSuggestions(); }
+      }, 300);
     });
 
-    document.getElementById('plan-addr-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter') document.getElementById('plan-addr-btn').click();
+    addrInput.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeSuggestions();
+    });
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#plan-addr-wrap')) closeSuggestions();
     });
 
 
@@ -2082,11 +2040,7 @@
     }
 
     document.getElementById('autopilotBtn').addEventListener('click', doAutopilot);
-    document.getElementById('findBtn').addEventListener('click', doPreferences);
     document.getElementById('planBtn').addEventListener('click', doPlan);
-    document.getElementById('queryInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter') doPreferences();
-    });
   </script>
 </body>
 </html>

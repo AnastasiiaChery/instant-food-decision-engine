@@ -1,76 +1,34 @@
-import json
+import logging
 from pathlib import Path
 
-from openai import AsyncOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_groq import ChatGroq
 
 from app.models.search import PlaceIntent
 
+logger = logging.getLogger(__name__)
+
 _SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "intent.txt").read_text()
 
-_PARSE_INTENT_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "parse_search_intent",
-        "description": "Extract structured search intent from a user's free-text food venue request.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "venue_types": {
-                    "type": "array",
-                    "items": {"type": "string", "enum": ["restaurant", "fast_food", "cafe", "bar", "pub", "biergarten", "food_court"]},
-                    "description": "OSM amenity types that match the request. Use 'bar' for cocktails/drinks/wine bars, 'pub' for beer/pub atmosphere, 'biergarten' for outdoor beer gardens, 'restaurant' for sit-down dining, 'fast_food' for quick meals, 'cafe' for coffee/light bites.",
-                },
-                "mood": {
-                    "type": "string",
-                    "description": "Atmosphere or mood the user wants (e.g. 'cozy', 'lively', 'quiet').",
-                },
-                "price_level": {
-                    "type": "array",
-                    "items": {"type": "integer", "minimum": 1, "maximum": 4},
-                    "description": "Acceptable price levels (1=cheap, 4=upscale).",
-                },
-                "features": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Specific features requested (e.g. 'terrace', 'wifi', 'parking').",
-                },
-                "time_sensitivity": {
-                    "type": "string",
-                    "description": "Whether the user needs somewhere open right now or is planning ahead.",
-                },
-                "cuisine": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Specific cuisine types requested (e.g. 'ukrainian', 'italian', 'sushi', 'chinese'). Empty if not specified.",
-                },
-            },
-            "required": ["venue_types", "mood", "price_level", "features", "time_sensitivity", "cuisine"],
-        },
-    },
-}
+_prompt = ChatPromptTemplate.from_messages([
+    ("system", _SYSTEM_PROMPT),
+    ("human", "{query}"),
+])
 
 _DEFAULT_INTENT = PlaceIntent(
     venue_types=["restaurant", "cafe", "bar", "pub"],
     mood="casual",
     price_level=[1, 2, 3],
     features=[],
-    time_sensitivity="right now",
+    cuisine=[],
 )
 
 
-async def parse_intent(query: str, client: AsyncOpenAI, model: str) -> PlaceIntent:
+async def parse_intent(query: str, llm: ChatGroq) -> PlaceIntent:
+    chain = (_prompt | llm.with_structured_output(PlaceIntent)).with_retry(stop_after_attempt=2)
     try:
-        response = await client.chat.completions.create(
-            model=model,
-            tools=[_PARSE_INTENT_TOOL],
-            tool_choice={"type": "function", "function": {"name": "parse_search_intent"}},
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": query},
-            ],
-        )
-        tool_call = response.choices[0].message.tool_calls[0]
-        args = json.loads(tool_call.function.arguments)
-        return PlaceIntent(**args)
+        result = await chain.ainvoke({"query": query})
+        return result
     except Exception:
+        logger.exception("intent parsing failed for query %r, using default", query)
         return _DEFAULT_INTENT
