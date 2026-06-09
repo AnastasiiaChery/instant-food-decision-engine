@@ -20,11 +20,10 @@ from app.services.places_client import OverpassPlacesClient
 
 _places_client = OverpassPlacesClient()
 
-_ALL_VENUE_TYPES = [
+_VALID_VENUE_TYPES = {
     "restaurant", "fast_food", "cafe", "bar", "pub", "biergarten", "food_court",
     "cocktail_bar", "wine_bar", "juice_bar", "ice_cream", "food_hall", "taproom",
-]
-_VALID_VENUE_TYPES = set(_ALL_VENUE_TYPES)
+}
 
 
 _NAMED_WHEN: dict[str, str] = {
@@ -211,15 +210,16 @@ async def stream_search(
     now_utc = _parse_when_utc(request.when, request.lng)
     time_context = _local_time_str(request.lat, request.lng)
 
-    # Intent parsing runs concurrently with places fetching.
-    # We use a fixed superset of all venue types as the cache key so a single
-    # cache entry serves every query at the same location/radius regardless of intent.
-    intent_task: asyncio.Task[PlaceIntent] = asyncio.create_task(
-        intent_parser.parse_intent(request.query, ai_client)
-    )
+    # Parse intent first — determines which venue types to actually fetch (never raises)
+    intent: PlaceIntent = await intent_parser.parse_intent(request.query, ai_client)
+    yield _intent_event(intent, request.query)
+
+    venue_types = [vt for vt in intent.venue_types if vt in _VALID_VENUE_TYPES] or [
+        "restaurant", "cafe", "bar", "pub"
+    ]
 
     try:
-        cached = await cache.get_cached(request.lat, request.lng, _ALL_VENUE_TYPES, radius_m)
+        cached = await cache.get_cached(request.lat, request.lng, venue_types, radius_m)
         if cached is not None:
             all_places: list[Place] = [Place(**d) for d in cached]
         else:
@@ -234,7 +234,7 @@ async def stream_search(
                         max_radius_m=settings.max_radius_m,
                         now_utc=now_utc,
                     )
-                    for vt in _ALL_VENUE_TYPES
+                    for vt in venue_types
                 ],
                 return_exceptions=True,
             )
@@ -242,11 +242,10 @@ async def stream_search(
             if errors:
                 logger.warning(
                     "places fetch: %d/%d venue types failed at (%.4f, %.4f): %s",
-                    len(errors), len(_ALL_VENUE_TYPES),
+                    len(errors), len(venue_types),
                     request.lat, request.lng, errors[0],
                 )
             if len(errors) == len(fetch_results):
-                intent_task.cancel()
                 yield _error_event(str(errors[0]))
                 return
             all_places = []
@@ -260,26 +259,13 @@ async def stream_search(
                         seen_keys.add(key)
                         all_places.append(p)
             await cache.set_cached(
-                request.lat, request.lng, _ALL_VENUE_TYPES, radius_m,
+                request.lat, request.lng, venue_types, radius_m,
                 [p.model_dump() for p in all_places],
             )
     except Exception as exc:
         logger.exception("places fetch failed at (%.4f, %.4f)", request.lat, request.lng)
-        intent_task.cancel()
         yield _error_event(str(exc))
         return
-
-    # Wait for intent — usually already done while places were being fetched
-    try:
-        intent: PlaceIntent = await intent_task
-    except Exception:
-        logger.exception("intent task failed for query %r, using default", request.query)
-        intent = PlaceIntent(
-            venue_types=["restaurant", "cafe", "bar", "pub"],
-            mood="casual",
-            price_level=[1, 2, 3],
-            features=[],
-        )
 
     places: list[Place] = all_places
 
@@ -303,8 +289,6 @@ async def stream_search(
 
     places = sorted(places, key=lambda p: _quality_score(p, intent), reverse=True)[:30]
 
-    # Emit parsed intent for transparency, then the place list
-    yield _intent_event(intent, request.query)
     yield _place_event(places)
 
     if request.mode == "plan":

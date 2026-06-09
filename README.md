@@ -21,10 +21,10 @@ AI-powered service that finds and recommends food and drink venues nearby. Enter
 ```
 POST /api/v1/search
   │
-  ├─ LLM parses query → venue_types, cuisine, mood, features   (concurrent with places fetch)
-  ├─► SSE "intent"   — parsed query intent
-  ├─ Overpass fetches all venue types in parallel, deduped
-  ├─► SSE "places"   — raw results, immediate
+  ├─ LLM parses query → venue_types, cuisine, mood, features
+  ├─► SSE "intent"   — parsed query intent (emitted immediately after parsing)
+  ├─ Overpass fetches only matched venue types (1–3 instead of all 13), deduped
+  ├─► SSE "places"   — raw results
   │
   ├─ [autopilot]  LLM ranks → top 1 + fallback
   │   └─► SSE "recommendation"
