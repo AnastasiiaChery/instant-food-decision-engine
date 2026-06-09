@@ -47,8 +47,8 @@ export function initAuth() {
     }
   }
 
-  const token = getToken();
-  if (token && !isTokenValid(token)) { localStorage.removeItem(TOKEN_KEY); return; }
+  let token = getToken();
+  if (token && !isTokenValid(token)) { localStorage.removeItem(TOKEN_KEY); token = null; }
 
   const authBtn   = document.getElementById('authBtn');
   const userMenu  = document.getElementById('userMenu');
