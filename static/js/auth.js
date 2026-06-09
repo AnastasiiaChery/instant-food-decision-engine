@@ -56,6 +56,7 @@ export function initAuth() {
   const dropdown  = document.getElementById('avatarDropdown');
 
   if (!token) {
+    document.body.classList.add('is-guest');
     if (authBtn) { authBtn.removeAttribute('href'); authBtn.addEventListener('click', () => openAuthModal('login')); }
     return;
   }

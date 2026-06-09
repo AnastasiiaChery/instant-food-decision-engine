@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { setStatus } from './ui.js';
 import { clearMarkers, showMapTrigger } from './map.js';
-import { initAuth } from './auth.js';
+import { initAuth, openAuthModal } from './auth.js';
 import { doAutopilot } from './autopilot.js';
 import { doPlan } from './plan.js';
 
@@ -27,3 +27,6 @@ document.getElementById('autopilotBtn').addEventListener('click', doAutopilot);
 document.getElementById('planBtn').addEventListener('click', doPlan);
 
 initAuth();
+
+document.getElementById('landingRegisterBtn')?.addEventListener('click', () => openAuthModal('register'));
+document.getElementById('landingSignInBtn')?.addEventListener('click', () => openAuthModal('login'));
