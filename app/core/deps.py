@@ -17,15 +17,19 @@ from app.models.user import User
 def configure_langsmith() -> None:
     """Enable LangSmith tracing if an API key is configured.
 
-    LangSmith is a separate observability product by the LangChain company.
-    The LangChain library reads a fixed set of env var names (LANGCHAIN_API_KEY,
-    LANGCHAIN_TRACING_V2, LANGCHAIN_PROJECT) to activate tracing automatically —
-    we bridge our clearly-named settings to those internal names here.
+    Sets both the modern LANGSMITH_* names (langsmith>=0.2) and the legacy
+    LANGCHAIN_* names so tracing works regardless of the installed version.
     """
     if settings.langsmith_api_key:
-        os.environ.setdefault("LANGCHAIN_API_KEY", settings.langsmith_api_key)
-        os.environ.setdefault("LANGCHAIN_TRACING_V2", settings.langsmith_tracing)
-        os.environ.setdefault("LANGCHAIN_PROJECT", settings.langsmith_project)
+        for key, val in (
+            ("LANGSMITH_API_KEY",    settings.langsmith_api_key),
+            ("LANGSMITH_TRACING",    settings.langsmith_tracing),
+            ("LANGSMITH_PROJECT",    settings.langsmith_project),
+            ("LANGCHAIN_API_KEY",    settings.langsmith_api_key),
+            ("LANGCHAIN_TRACING_V2", settings.langsmith_tracing),
+            ("LANGCHAIN_PROJECT",    settings.langsmith_project),
+        ):
+            os.environ.setdefault(key, val)
 
 
 @asynccontextmanager

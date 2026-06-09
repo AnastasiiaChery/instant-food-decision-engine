@@ -12,7 +12,7 @@ class SearchRequest(BaseModel):
     exclude_place_names: list[str] = []    # autopilot: skip these place names (multi)
     use_profile: bool = True
     group_size: str | None = None  # plan mode: solo | duo | small_group | large_group
-    occasion: str | None = None  # plan mode: casual | romantic | business | celebration
+    budget: str | None = None  # plan mode: budget | mid | upscale
 
 
 class PlaceIntent(BaseModel):

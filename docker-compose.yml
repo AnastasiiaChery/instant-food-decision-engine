@@ -12,6 +12,9 @@ services:
       DISTANCE_WEIGHT: "0.75"
       RELIABILITY_WEIGHT: "0.25"
       DATABASE_URL: "postgresql+asyncpg://postgres:postgres@postgres:5432/instantfood"
+      LANGSMITH_API_KEY: "${LANGSMITH_API_KEY}"
+      LANGSMITH_TRACING: "${LANGSMITH_TRACING:-true}"
+      LANGSMITH_PROJECT: "${LANGSMITH_PROJECT:-instant-food-decision-engine}"
     depends_on:
       redis:
         condition: service_healthy

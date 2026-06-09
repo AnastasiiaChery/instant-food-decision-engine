@@ -12,7 +12,10 @@ OVERPASS_URLS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
 ]
-VALID_AMENITIES = {"restaurant", "fast_food", "cafe", "bar", "pub", "biergarten", "food_court"}
+VALID_AMENITIES = {
+    "restaurant", "fast_food", "cafe", "bar", "pub", "biergarten", "food_court",
+    "cocktail_bar", "wine_bar", "juice_bar", "ice_cream", "food_hall", "taproom",
+}
 
 
 class PlacesClient(Protocol):
@@ -71,13 +74,25 @@ def _candidate_key(candidate: dict[str, Any]) -> str:
     )
 
 
+_SAME_PLACE_RADIUS_M = 80
+
+
 def _deduplicate(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
     unique: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    seen_exact: set[str] = set()
     for c in candidates:
         key = _candidate_key(c)
-        if key not in seen:
-            seen.add(key)
+        if key in seen_exact:
+            continue
+        name = c.get("name", "").strip().lower()
+        lat, lon = float(c.get("lat", 0)), float(c.get("lon", 0))
+        is_dup = any(
+            u.get("name", "").strip().lower() == name
+            and _distance_m(lat, lon, float(u["lat"]), float(u["lon"])) <= _SAME_PLACE_RADIUS_M
+            for u in unique
+        )
+        if not is_dup:
+            seen_exact.add(key)
             unique.append(c)
     return unique
 
@@ -85,7 +100,7 @@ def _deduplicate(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _build_overpass_query(lat: float, lon: float, venue_types: list[str], radius_m: int) -> str:
     amenity_regex = "|".join(venue_types)
     return f"""
-[out:json][timeout:12];
+[out:json][timeout:15];
 (
   node["amenity"~"{amenity_regex}"](around:{radius_m},{lat},{lon});
   way["amenity"~"{amenity_regex}"](around:{radius_m},{lat},{lon});

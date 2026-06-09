@@ -1,0 +1,245 @@
+import { state } from './state.js';
+import { escHtml, safeUrl, authHeaders, getToken } from './utils.js';
+import { setStatus } from './ui.js';
+import { recordNavigate } from './api.js';
+import { initMap, openMap, clearMarkers, pinIcon, showMapTrigger } from './map.js';
+
+const TOP_N = 5;
+
+function placeKey(p) {
+  return `${(p.name || '').trim().toLowerCase()}|${Number(p.lat).toFixed(5)}|${Number(p.lon).toFixed(5)}`;
+}
+
+export function addNoteWidget(container, place) {
+  const wrap = document.createElement('div');
+  wrap.className = 'place-note-wrap';
+  wrap.innerHTML = `
+    <button class="place-note-toggle">+ add a note</button>
+    <textarea class="place-note-input" rows="2" maxlength="500"
+      placeholder="Loved it, too noisy, great terrace…"></textarea>
+  `;
+  container.appendChild(wrap);
+  wrap.querySelector('.place-note-toggle').addEventListener('click', () => {
+    wrap.classList.toggle('open');
+    if (wrap.classList.contains('open')) wrap.querySelector('.place-note-input').focus();
+  });
+  wrap.addEventListener('click', e => e.stopPropagation());
+  return () => wrap.querySelector('.place-note-input').value.trim();
+}
+
+export function addFavButton(container, place) {
+  const btn = document.createElement('button');
+  btn.className = 'fav-btn' + (getToken() ? ' visible' : '');
+  btn.title = 'Save to favourites';
+  btn.textContent = '♡';
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!getToken()) return;
+    btn.classList.add('active');
+    btn.textContent = '♥';
+    fetch('/api/v1/history/navigate', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        place_name: place.name,
+        place_type: place.amenity || 'restaurant',
+        lat: place.lat,
+        lng: place.lon,
+        action_type: 'favorite',
+      }),
+    }).catch(() => {});
+  });
+  container.appendChild(btn);
+  return btn;
+}
+
+function addShowMoreBtn(total) {
+  const cardsGrid = document.getElementById('cardsGrid');
+  const hidden = total - TOP_N;
+  const btn = document.createElement('button');
+  btn.className = 'show-more-btn';
+  btn.textContent = `Show ${hidden} more place${hidden !== 1 ? 's' : ''}`;
+  btn.addEventListener('click', () => {
+    cardsGrid.querySelectorAll('.card-hidden').forEach(c => c.classList.remove('card-hidden'));
+    btn.remove();
+  });
+  cardsGrid.appendChild(btn);
+}
+
+export function renderPlaces(places) {
+  const cardsGrid = document.getElementById('cardsGrid');
+  cardsGrid.innerHTML = '';
+  state.cardMap.clear();
+  clearMarkers();
+  initMap();
+
+  places.forEach((p, i) => {
+    const isTop   = i === 0;
+    const card    = document.createElement('div');
+    card.className = 'card' + (isTop ? ' top' : '');
+    card.style.animationDelay = `${i * 0.05}s`;
+    const cuisine = p.cuisine ? ` · ${escHtml(p.cuisine)}` : '';
+    card.innerHTML = `
+      <div class="card-head">
+        <div class="rank-badge">${i + 1}</div>
+        <div class="card-name">${escHtml(p.name || 'Unnamed')}</div>
+        <div class="score-pill"></div>
+      </div>
+      <div class="card-meta">${Math.round(p.distance_m)}m · ${escHtml(p.amenity || 'food')}${cuisine}</div>
+      <div class="card-reason"><div class="skel"></div><div class="skel short"></div></div>
+      <a class="card-nav" href="${escHtml(safeUrl(p.nav_url))}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+    `;
+    cardsGrid.appendChild(card);
+    const getNotes = addNoteWidget(card, p);
+    addFavButton(card, p);
+    card.querySelector('.card-nav').addEventListener('click', () => recordNavigate(p, getNotes()));
+
+    const marker = L.marker([p.lat, p.lon], { icon: pinIcon(i, isTop) })
+      .addTo(state.map)
+      .bindPopup(`<strong>${escHtml(p.name)}</strong><br>${Math.round(p.distance_m)}m`);
+    marker.on('click', () => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+    card.addEventListener('click', e => {
+      if (e.target.closest('.card-nav')) return;
+      openMap();
+      setTimeout(() => state.map.flyTo([p.lat, p.lon], 16, { animate: true, duration: 0.5 }), 80);
+      setTimeout(() => marker.openPopup(), 700);
+    });
+    state.leafletMarkers.push(marker);
+    state.cardMap.set(placeKey(p), { card, markerIdx: i });
+  });
+
+  showMapTrigger(places.length);
+}
+
+export function applyRanking(ranked) {
+  ranked = [...ranked].sort((a, b) => b.match_score - a.match_score || a.distance_m - b.distance_m);
+  const keepKeys  = new Set(ranked.map(placeKey));
+  const cardsGrid = document.getElementById('cardsGrid');
+  [...state.cardMap.entries()].forEach(([key, { card, markerIdx }]) => {
+    if (!keepKeys.has(key)) { card.remove(); state.leafletMarkers[markerIdx]?.remove(); }
+  });
+  ranked.forEach((p, i) => {
+    const entry = state.cardMap.get(placeKey(p));
+    if (!entry) return;
+    const { card, markerIdx } = entry;
+    const isTop = i === 0;
+    card.className = 'card' + (isTop ? ' top' : '') + (i >= TOP_N ? ' card-hidden' : '');
+    const rankEl = card.querySelector('.rank-badge');
+    if (rankEl) rankEl.textContent = i + 1;
+    const scoreEl = card.querySelector('.score-pill');
+    if (scoreEl && p.match_score != null) {
+      scoreEl.textContent = Math.round(p.match_score * 100) + '%';
+      scoreEl.classList.add('show');
+    }
+    const reasonEl = card.querySelector('.card-reason');
+    if (reasonEl) reasonEl.textContent = p.reason || '';
+    cardsGrid.appendChild(card);
+    state.leafletMarkers[markerIdx]?.setIcon(pinIcon(i, isTop));
+  });
+  if (ranked.length > TOP_N) addShowMoreBtn(ranked.length);
+}
+
+export function renderRecommendation(data, animate = true, onRetry = null) {
+  const { place, reason, signals = [], fallback_place, fallback_signals = [] } = data;
+  state.recFallback = fallback_place
+    ? { place: fallback_place, reason: fallback_place.reason, signals: fallback_signals, fallback_place: null, fallback_signals: [] }
+    : null;
+
+  const cuisine   = place.cuisine ? ` · ${escHtml(place.cuisine)}` : '';
+  const cardsGrid = document.getElementById('cardsGrid');
+  cardsGrid.innerHTML = '';
+  state.cardMap.clear();
+  clearMarkers();
+  initMap();
+
+  const signalHtml = signals.length
+    ? `<div class="rec-signals">${signals.map(s => `<span class="rec-signal">${escHtml(s)}</span>`).join('')}</div>`
+    : '';
+
+  const card = document.createElement('div');
+  card.className = 'rec-card';
+  if (animate) card.style.animation = 'fadeUp 0.3s ease both';
+  card.innerHTML = `
+    <div class="rec-badge">AI pick</div>
+    <div class="rec-name">${escHtml(place.name || 'Unnamed')}</div>
+    <div class="rec-meta">${escHtml(place.amenity || 'food')}${cuisine}</div>
+    ${signalHtml}
+    <div class="rec-why-label">Why this?</div>
+    <div class="rec-reason"></div>
+    <div class="rec-actions">
+      <a class="rec-nav" href="${escHtml(safeUrl(place.nav_url))}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+      <button class="rec-another">${state.recFallback ? 'Show another option' : 'Try again'}</button>
+    </div>
+  `;
+  card.querySelector('.rec-reason').textContent = reason || '';
+  cardsGrid.appendChild(card);
+  const getNotes = addNoteWidget(card, place);
+  addFavButton(card, place);
+  card.querySelector('.rec-nav').addEventListener('click', () => recordNavigate(place, getNotes()));
+  card.querySelector('.rec-another').addEventListener('click', () => {
+    if (state.recFallback) {
+      state.lastAutopilotPlace = place.name;
+      const fb = state.recFallback;
+      state.recFallback = null;
+      card.classList.add('swapping');
+      setTimeout(() => {
+        renderRecommendation(fb, false, onRetry);
+        setStatus("Here's another option", 'done');
+      }, 180);
+    } else if (onRetry) {
+      onRetry();
+    }
+  });
+
+  const marker = L.marker([place.lat, place.lon], { icon: pinIcon(0, true) })
+    .addTo(state.map)
+    .bindPopup(`<strong>${escHtml(place.name)}</strong><br>${Math.round(place.distance_m)}m`);
+  state.leafletMarkers.push(marker);
+  showMapTrigger(1);
+}
+
+export function renderPlanRecommendations(data) {
+  const recs      = data.recommendations || [];
+  const cardsGrid = document.getElementById('cardsGrid');
+  cardsGrid.innerHTML = '';
+  state.cardMap.clear();
+  clearMarkers();
+  initMap();
+
+  recs.forEach((rec, i) => {
+    const { place, reason, scenario } = rec;
+    const cuisine = place.cuisine ? ` · ${escHtml(place.cuisine)}` : '';
+    const card    = document.createElement('div');
+    card.className = 'card' + (i === 0 ? ' top' : '') + (i >= TOP_N ? ' card-hidden' : '');
+    card.style.animationDelay = `${i * 0.07}s`;
+    card.innerHTML = `
+      <div class="card-head">
+        <div class="rank-badge">${i + 1}</div>
+        <div class="card-name">${escHtml(place.name || 'Unnamed')}</div>
+        ${scenario ? `<div class="score-pill show">${escHtml(scenario)}</div>` : ''}
+      </div>
+      <div class="card-meta">${Math.round(place.distance_m)}m · ${escHtml(place.amenity || 'food')}${cuisine}</div>
+      <div class="card-reason"></div>
+      <a class="card-nav" href="${escHtml(safeUrl(place.nav_url))}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+    `;
+    card.querySelector('.card-reason').textContent = reason || '';
+    cardsGrid.appendChild(card);
+    const getNotes = addNoteWidget(card, place);
+    addFavButton(card, place);
+    card.querySelector('.card-nav').addEventListener('click', () => recordNavigate(place, getNotes()));
+    card.addEventListener('click', e => {
+      if (e.target.closest('.card-nav') || e.target.closest('.place-note-wrap')) return;
+      openMap();
+      setTimeout(() => state.map.flyTo([place.lat, place.lon], 16), 80);
+    });
+    if (place.lat && place.lon) {
+      const marker = L.marker([place.lat, place.lon], { icon: pinIcon(i, i === 0) })
+        .addTo(state.map)
+        .bindPopup(`<strong>${escHtml(place.name)}</strong><br>${Math.round(place.distance_m)}m`);
+      state.leafletMarkers.push(marker);
+    }
+  });
+
+  if (recs.length > TOP_N) addShowMoreBtn(recs.length);
+  showMapTrigger(recs.length);
+}

@@ -45,6 +45,13 @@ Many venues have no cuisine tag. For type-matched venues without cuisine info:
 - Score based on type match + mood fit, typically 0.5–0.7
 - Do not penalise for missing cuisine unless the user explicitly requested a specific one
 
+## Venue name as a cuisine signal
+If the venue has no cuisine tag but its **name** clearly implies a cuisine (e.g. "Mexican Food",
+"Thai House", "Sushi Bar", "Pizza Roma", "Indian Palace"), treat the name as a cuisine hint:
+- Name matches the requested cuisine → score as if the cuisine tag were present (0.7–0.9)
+- Name implies a clearly different cuisine → score as wrong-cuisine (0.0–0.1)
+- Name is ambiguous or unrelated to cuisine → ignore and fall back to type + mood scoring
+
 ## Opening hours and time context
 Each venue has an `opening_hours` field (may be null/unknown — do not penalise for unknown).
 If `Current local time` is provided, use it to assess whether the venue is likely open:

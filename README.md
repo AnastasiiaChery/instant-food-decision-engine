@@ -7,11 +7,12 @@ AI-powered service that finds and recommends food and drink venues nearby. Enter
 | Layer | Tech |
 |-------|------|
 | API | FastAPI + Uvicorn |
-| AI | Groq `llama-3.3-70b-versatile` via OpenAI-compatible SDK |
+| AI | Groq `llama-3.3-70b-versatile` via LangChain |
 | Geo | OpenStreetMap / Overpass API (2 failover endpoints) |
 | Auth | Google OAuth2 + email/password + JWT (python-jose, passlib/bcrypt) |
 | DB | PostgreSQL 16 + SQLAlchemy 2 async + Alembic |
 | Cache | Redis (optional — degrades gracefully) |
+| Tracing | LangSmith (optional) |
 | Frontend | Vanilla JS + Leaflet maps |
 | Infra | Docker + Docker Compose |
 
@@ -20,22 +21,32 @@ AI-powered service that finds and recommends food and drink venues nearby. Enter
 ```
 POST /api/v1/search
   │
-  ├─ LLM parses query → venue_types (restaurant/bar/pub/cafe/…), cuisine, mood
-  ├─ Overpass fetches venues in parallel (bar for cocktails, pub for beer, etc.)
-  ├─► SSE "places" — raw results, immediate
-  ├─ LLM ranks each place 0–1, explains why
-  ├─ Filters out score < 0.2, sorts by relevance then distance
-  └─► SSE "ranked" — top results, ~1-2s later
+  ├─ LLM parses query → venue_types, cuisine, mood, features   (concurrent with places fetch)
+  ├─► SSE "intent"   — parsed query intent
+  ├─ Overpass fetches all venue types in parallel, deduped
+  ├─► SSE "places"   — raw results, immediate
+  │
+  ├─ [autopilot]  LLM ranks → top 1 + fallback
+  │   └─► SSE "recommendation"
+  │
+  ├─ [preferences]  LLM scores each place 0–1, filters < 0.2, sorts
+  │   └─► SSE "ranked"
+  │
+  └─ [plan]  LLM ranks → planner generates structured itinerary
+      └─► SSE "recommendations"
+
+  On no relevant results (best score < 0.4):
+      └─► SSE "no_match"
 ```
 
 Three UI modes — see [UI modes](#ui-modes) below.
 
 ## UI modes
 
-### 🎲 Autopilot
-One tap — AI picks the single best place nearby based on your location. No configuration needed. Returns one curated recommendation with a reason and navigation link.
+### Autopilot
+One tap — AI picks the single best place nearby based on your location. No configuration needed. Returns one curated recommendation with a fallback option and a navigation link.
 
-### 🔍 Preferences
+### Preferences
 Full-text search with optional filters:
 - **Query** — free text: "cozy Italian", "cocktails", "something cheap and quick"
 - **Quick chips** — Open now · Cheap · Terrace · Cozy · Quick bite · Outdoor
@@ -44,7 +55,7 @@ Full-text search with optional filters:
 
 Returns up to 20 AI-ranked results. Top 5 shown immediately; "Show N more" reveals the rest. Places with relevance score < 0.2 are hidden.
 
-### 📅 Plan
+### Plan
 Structured planning for a specific outing:
 
 | Parameter | Options |
@@ -53,7 +64,7 @@ Structured planning for a specific outing:
 | **Group** | Solo · 2 people · Small group · Large group |
 | **Occasion** | Casual · Romantic · Business · Celebration |
 | **Preferences** | Optional free text (dietary needs, vibe, cuisine) |
-| **Location** | 📍 GPS · 🔍 Address · 🗺 Click on map |
+| **Location** | GPS · Address · Click on map |
 | **Radius** | 0.5 km to 3 km slider |
 
 AI uses group size and occasion as ranking context — a "romantic" search favours quiet restaurants over loud bars, "business" favours places suitable for meetings, etc.
@@ -97,21 +108,44 @@ REDIS_URL=                    # empty = no cache
 SEARCH_RADIUS_M=1500          # initial search radius
 MAX_RADIUS_M=3000             # hard cap (user slider 0.5–3 km)
 JWT_EXPIRE_MINUTES=10080      # 7 days
+
+# LangSmith tracing
+LANGSMITH_API_KEY=            # empty = tracing disabled
+LANGSMITH_TRACING=true
+LANGSMITH_PROJECT=instant-food-decision-engine
 ```
 
 ## Search request
 
 `POST /api/v1/search` accepts:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `lat` | float | Latitude |
-| `lng` | float | Longitude |
-| `query` | string | Free-text ("cocktails", "cozy Italian", …) |
-| `when` | string? | `"HH:MM"` — plan for a specific time |
-| `radius_m` | int? | Search radius in metres, capped at `MAX_RADIUS_M` |
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `lat` | float | required | Latitude |
+| `lng` | float | required | Longitude |
+| `query` | string | `"something good nearby"` | Free-text intent |
+| `mode` | string | `"preferences"` | `autopilot` · `preferences` · `plan` |
+| `when` | string? | — | Local time `"HH:MM"` or named (`"breakfast"`, `"lunch"`, `"dinner"`) |
+| `radius_m` | int? | `SEARCH_RADIUS_M` | Search radius in metres, capped at `MAX_RADIUS_M` |
+| `use_profile` | bool | `true` | Apply saved diet/cuisine preferences when user is authenticated |
+| `group_size` | string? | — | Plan mode: `solo` · `duo` · `small_group` · `large_group` |
+| `occasion` | string? | — | Plan mode: `casual` · `romantic` · `business` · `celebration` |
+| `exclude_place_names` | string[] | `[]` | Autopilot: skip these venues (for "try again") |
+| `exclude_place_name` | string? | — | Autopilot: skip one venue (legacy, single) |
 
-Streams two SSE events: `places` (raw list) then `ranked` (AI-scored, filtered, sorted).
+### SSE event stream
+
+The response is a Server-Sent Events stream. Events arrive in this order:
+
+| Event | Modes | Payload |
+|-------|-------|---------|
+| `intent` | all | `{ query, venue_types, mood, cuisine, features }` |
+| `places` | all | `[{ name, distance_m, amenity, cuisine, lat, lon, nav_url }]` |
+| `recommendation` | autopilot | `{ place, reason, signals, fallback_place, fallback_signals }` |
+| `ranked` | preferences | `[{ name, lat, lon, distance_m, amenity, cuisine, match_score, reason, nav_url }]` |
+| `recommendations` | plan | `{ recommendations: [{ place, reason, scenario }] }` |
+| `no_match` | all | `{ query }` — emitted when best score < 0.4 |
+| `error` | all | `{ detail }` |
 
 ## Endpoints
 
