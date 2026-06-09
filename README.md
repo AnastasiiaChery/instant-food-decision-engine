@@ -32,11 +32,8 @@ POST /api/v1/search
   ├─ [autopilot]  LLM ranks, picks top 1 + fallback
   │   └─► SSE "recommendation"
   │
-  ├─ [plan]  LLM ranks → agentic planner (may call search_more_places ×2) → finalize
-  │   └─► SSE "recommendations"
-  │
-  └─ [preferences]  LLM ranks, filters < 0.2   (API-only, not exposed in UI)
-      └─► SSE "ranked"
+  └─ [plan]  agentic planner (may call search_more_places ×2) → finalize_plan
+      └─► SSE "recommendations"
 
   On no relevant results (best score < 0.4):
       └─► SSE "no_match"
@@ -130,7 +127,7 @@ LANGSMITH_PROJECT=instant-food-decision-engine
 | `lat` | float | required | Latitude |
 | `lng` | float | required | Longitude |
 | `query` | string | `"something good nearby"` | Free-text intent |
-| `mode` | string | `"preferences"` | `autopilot` · `plan` · `preferences` (API only) |
+| `mode` | string | `"autopilot"` | `autopilot` · `plan` |
 | `when` | string? | — | Local time `"HH:MM"` or named (`"breakfast"`, `"lunch"`, `"dinner"`) |
 | `radius_m` | int? | `SEARCH_RADIUS_M` | Search radius in metres, capped at `MAX_RADIUS_M` |
 | `use_profile` | bool | `true` | Apply saved diet/cuisine preferences when user is authenticated |
@@ -149,7 +146,6 @@ The response is a Server-Sent Events stream. Events arrive in this order:
 | `places` | all | `[{ name, distance_m, amenity, cuisine, lat, lon, nav_url }]` |
 | `recommendation` | autopilot | `{ place, reason, signals, fallback_place, fallback_signals }` |
 | `recommendations` | plan | `{ recommendations: [{ place, reason, scenario }] }` |
-| `ranked` | preferences | `[{ name, lat, lon, distance_m, amenity, cuisine, match_score, reason, nav_url }]` |
 | `no_match` | all | `{ query }` — emitted when best score < 0.4 |
 | `error` | all | `{ detail }` |
 
