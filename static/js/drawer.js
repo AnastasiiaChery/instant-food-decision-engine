@@ -1,10 +1,11 @@
 import { authHeaders, escHtml, safeUrl, parseJwt, getToken } from './utils.js';
+import { t } from './i18n.js';
 
 export function openDrawer() {
   const token = getToken();
   if (!token) return;
   const p = parseJwt(token) || {};
-  document.getElementById('drawerUserName').textContent  = p.display_name || p.email || 'User';
+  document.getElementById('drawerUserName').textContent  = p.display_name || p.email || t('drawer.user');
   document.getElementById('drawerUserEmail').textContent = p.email || '';
   document.getElementById('drawerDisplayName').value     = p.display_name || '';
   document.getElementById('drawerEmail').value           = p.email || '';
@@ -92,7 +93,7 @@ async function loadDrawerProfile() {
 
     if (meRes.ok) {
       const me = await meRes.json();
-      document.getElementById('drawerUserName').textContent  = me.display_name || me.email || 'User';
+      document.getElementById('drawerUserName').textContent  = me.display_name || me.email || t('drawer.user');
       document.getElementById('drawerUserEmail').textContent = me.email || '';
       document.getElementById('drawerDisplayName').value     = me.display_name || '';
       document.getElementById('drawerEmail').value           = me.email || '';
@@ -115,7 +116,7 @@ async function loadDrawerProfile() {
   } catch { serverError = true; }
 
   if (statusEl && serverError) {
-    statusEl.textContent = 'Could not reach server.';
+    statusEl.textContent = t('drawer.serverError');
     statusEl.style.color = '#ef4444';
   }
 
@@ -126,19 +127,19 @@ async function loadDrawerProfile() {
 function relativeTime(isoStr) {
   const diff = Date.now() - new Date(isoStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60) return t('drawer.timeAgoMin', { n: mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  if (hrs < 24) return t('drawer.timeAgoHour', { n: hrs });
+  return t('drawer.timeAgoDay', { n: Math.floor(hrs / 24) });
 }
 
 async function loadDrawerHistory() {
   const el = document.getElementById('drawerHistoryContent');
-  el.innerHTML = '<div class="history-empty">Loading…</div>';
+  el.innerHTML = `<div class="history-empty">${escHtml(t('drawer.loading'))}</div>`;
   try {
     const res = await fetch('/api/v1/history', { headers: authHeaders() });
     if (!res.ok && res.status !== 404) {
-      el.innerHTML = '<div class="history-empty">Could not load history.</div>';
+      el.innerHTML = `<div class="history-empty">${escHtml(t('drawer.historyError'))}</div>`;
       return;
     }
     const entries = res.ok ? await res.json() : [];
@@ -156,7 +157,7 @@ async function loadDrawerHistory() {
         const empty = document.createElement('div');
         empty.className = 'history-empty';
         empty.style.padding = '8px 0 16px';
-        empty.textContent = 'Nothing here yet.';
+        empty.textContent = t('drawer.nothingHere');
         el.appendChild(empty);
         return;
       }
@@ -172,9 +173,9 @@ async function loadDrawerHistory() {
       });
     }
 
-    renderSection('Favourites', '♥', favs);
-    renderSection('Navigated', '🧭', navs);
-  } catch { el.innerHTML = '<div class="history-empty">Could not load history.</div>'; }
+    renderSection(t('drawer.favourites'), '♥', favs);
+    renderSection(t('drawer.navigated'), '🧭', navs);
+  } catch { el.innerHTML = `<div class="history-empty">${escHtml(t('drawer.historyError'))}</div>`; }
 }
 
 // Event listeners
@@ -209,11 +210,11 @@ document.getElementById('drawerSaveBtn').addEventListener('click', async () => {
       }),
     ]);
     const newName   = displayName || document.getElementById('drawerEmail').value;
-    document.getElementById('drawerUserName').textContent = newName || 'User';
+    document.getElementById('drawerUserName').textContent = newName || t('drawer.user');
     const avatarBtn = document.getElementById('avatarBtn');
     if (avatarBtn && newName) avatarBtn.textContent = newName[0].toUpperCase();
     drawerInitialState = getDrawerCurrentState();
-    btn.textContent = 'Saved ✓';
-    setTimeout(() => { btn.textContent = 'Save changes'; updateSaveBtn(); }, 1500);
+    btn.textContent = t('drawer.saved');
+    setTimeout(() => { btn.textContent = t('drawer.save'); updateSaveBtn(); }, 1500);
   } catch { updateSaveBtn(); }
 });

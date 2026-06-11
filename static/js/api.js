@@ -1,14 +1,15 @@
 import { getToken } from './utils.js';
+import { t } from './i18n.js';
 
 export function getLocation() {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) { reject(new Error('Geolocation not supported.')); return; }
+    if (!navigator.geolocation) { reject(new Error(t('geo.notSupported'))); return; }
     navigator.geolocation.getCurrentPosition(
       p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
       e => {
-        if (e.code === 1) reject(new Error('Location permission denied.'));
-        else if (e.code === 2) reject(new Error('Location unavailable.'));
-        else reject(new Error('Location timed out. Please use Plan mode and enter your address manually.'));
+        if (e.code === 1) reject(new Error(t('geo.denied')));
+        else if (e.code === 2) reject(new Error(t('geo.unavailable')));
+        else reject(new Error(t('geo.timeout')));
       },
       { enableHighAccuracy: false, timeout: 30000, maximumAge: 300000 },
     );

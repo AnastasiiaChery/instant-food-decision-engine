@@ -15,6 +15,7 @@ class SearchRequest(BaseModel):
     use_profile: bool = True
     group_size: Literal["solo", "duo", "small_group", "large_group"] | None = None  # plan mode
     budget: Literal["budget", "mid", "upscale"] | None = None  # plan mode
+    lang: str = Field(default="en", pattern=r"^[a-z]{2}(-[a-z]{2})?$")  # UI language for AI-written text
 
 
 class PlaceIntent(BaseModel):

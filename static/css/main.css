@@ -106,6 +106,32 @@ header {
 .avatar-dd-item:hover { background: var(--bg); }
 .avatar-dd-item.danger { color: #ef4444; }
 
+.lang-btn {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 13px; font-weight: 500; font-family: inherit;
+  padding: 6px 8px; border-radius: 8px;
+  background: none; color: var(--text-2);
+  border: none; cursor: pointer;
+  transition: color 0.15s, background 0.15s; flex-shrink: 0;
+}
+.lang-btn:hover { color: var(--text); background: var(--bg); }
+.lang-btn #langCurrent { text-transform: uppercase; }
+
+.lang-dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow-md);
+  min-width: 150px; max-height: 280px; overflow-y: auto; z-index: 300;
+}
+.lang-dd-item {
+  display: block; width: 100%; padding: 10px 14px;
+  text-align: left; font-size: 13px; font-family: inherit;
+  color: var(--text); background: none; border: none;
+  cursor: pointer; transition: background 0.15s;
+}
+.lang-dd-item:hover { background: var(--bg); }
+.lang-dd-item.active { font-weight: 600; color: var(--accent); }
+
 .auth-btn {
   font-size: 13px;
   padding: 6px 14px;

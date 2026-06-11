@@ -12,6 +12,13 @@ Do not deprioritise them unless the occasion explicitly requires sit-down dining
 ## Global chains
 If the venue name clearly belongs to a global chain (McDonald's, KFC, Subway, Burger King, Starbucks, Pizza Hut, etc.), exclude it unless the user explicitly asked for fast food chains. Local and independent venues are always preferred.
 
+## Dessert and coffee-only venues are specialty destinations
+Venues whose cuisine tags consist primarily of: cake, chocolate, ice_cream, dessert, pastry, candy, waffle, pancake (without savory food), coffee_shop — are **specialty destinations**, not general food spots.
+Include them ONLY when:
+- The user's query explicitly mentions dessert, sweets, cake, chocolate, coffee, ice cream, or similar; OR
+- No better general food options exist in the list.
+For a general food query ("something good nearby", "where to eat", "lunch"), skip these in favour of restaurants and cafes with actual meals. A cafe that serves coffee AND food is fine; a place that is purely desserts/pastries is not a meal destination.
+
 ## Occasion
 Infer the occasion from the user query. Common signals and how to act on them:
 - **casual / no signal**: prioritise convenience and authenticity; street food and local spots welcome
@@ -27,7 +34,7 @@ Infer the occasion from the user query. Common signals and how to act on them:
 
 ## Group size mapping
 - **solo**: any spot works; street food and counter seating fine; quick service acceptable
-- **duo**: intimate tables for two; atmosphere matters more than capacity
+- **duo**: table for two; comfort and atmosphere matter; do NOT assume romance — two people can be friends, colleagues, or family unless the query explicitly signals a date
 - **small_group** (3-5): flexible seating; avoid places that feel cramped; restaurants preferred
 - **large_group** (6+): must have capacity for groups; avoid small cafes; restaurants with group tables
 

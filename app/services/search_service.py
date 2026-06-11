@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import math
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
@@ -16,14 +17,14 @@ from app.models.place import Place
 from app.models.profile import UserPreferences
 from app.models.search import PlaceIntent, PlanRecommendation, RankedPlace, SearchRequest
 from app.services import intent_parser, planner, ranker
-from app.services.places_client import OverpassPlacesClient, _is_open_now
-
-_places_client = OverpassPlacesClient()
-
-_VALID_VENUE_TYPES = {
-    "restaurant", "fast_food", "cafe", "bar", "pub", "biergarten", "food_court",
-    "cocktail_bar", "wine_bar", "juice_bar", "ice_cream", "food_hall", "taproom",
-}
+from app.services.places_client import (
+    VALID_AMENITIES,
+    _deduplicate,
+    _distance_m,
+    _fetch_raw,
+    _filter_candidates,
+    _is_open_now,
+)
 
 
 _NAMED_WHEN: dict[str, str] = {
@@ -246,54 +247,62 @@ async def _prepare_places(
 ) -> list[Place]:
     """Fetch (cached) + filter + sort venues for one radius.
 
-    Raises the underlying error if *all* Overpass fetches fail; returns [] when
-    the area simply has nothing. Safe to call more than once per request (e.g.
-    autopilot retry at a wider radius).
-    """
-    cached = await cache.get_cached(request.lat, request.lng, venue_types, radius_m)
-    if cached is not None:
-        all_places: list[Place] = [Place(**d) for d in cached]
-    else:
-        fetch_results = await asyncio.gather(
-            *[
-                _places_client.fetch(
-                    lat=request.lat,
-                    lng=request.lng,
-                    venue_types=[vt],
-                    radius_m=radius_m,
-                    http_client=http_client,
-                    max_radius_m=settings.max_radius_m,
-                    filter_open=False,  # cache stays time-agnostic; open-now applied below per request
-                )
-                for vt in venue_types
-            ],
-            return_exceptions=True,
-        )
-        errors = [r for r in fetch_results if isinstance(r, Exception)]
-        if errors:
-            logger.warning(
-                "places fetch: %d/%d venue types failed at (%.4f, %.4f): %s",
-                len(errors), len(venue_types),
-                request.lat, request.lng, errors[0],
-            )
-        if len(errors) == len(fetch_results):
-            raise errors[0]
-        all_places = []
-        seen_keys: set[str] = set()
-        for batch in fetch_results:
-            if isinstance(batch, Exception):
-                continue
-            for p in batch:
-                key = f"{p.name.lower()}|{p.lat:.5f}|{p.lon:.5f}"
-                if key not in seen_keys:
-                    seen_keys.add(key)
-                    all_places.append(p)
-        await cache.set_cached(
-            request.lat, request.lng, venue_types, radius_m,
-            [p.model_dump() for p in all_places],
-        )
+    Caches ALL venue types for the geo-cell so different intent queries share the
+    same entry. The cache key snaps radius to 500m tiers; distance_m is recomputed
+    from stored lat/lon on every cache hit so each caller gets correct distances.
 
-    places: list[Place] = all_places
+    Raises if Overpass fails; returns [] when the area simply has nothing.
+    Safe to call more than once per request (e.g. autopilot retry at wider radius).
+    """
+    # Snap to 500m ceiling tier — requests at 400/499/500m share one key; we filter
+    # to the actual radius after the read.
+    cache_radius = math.ceil(radius_m / 500) * 500
+
+    cached = await cache.get_cached(request.lat, request.lng, cache_radius)
+    if cached is not None:
+        # Recompute distance from the caller's exact position; the cached value was
+        # relative to whichever request populated the cell.
+        all_places: list[Place] = [
+            Place(**{**d, "distance_m": _distance_m(request.lat, request.lng, d["lat"], d["lon"])})
+            for d in cached
+        ]
+    else:
+        try:
+            raw = await _fetch_raw(
+                request.lat, request.lng,
+                sorted(VALID_AMENITIES),
+                cache_radius,
+                http_client,
+            )
+        except Exception:
+            logger.exception("places fetch failed at (%.4f, %.4f)", request.lat, request.lng)
+            raise
+
+        # Time-agnostic filter at fetch radius; open-now applied per request below.
+        filtered = _filter_candidates(raw, cache_radius, now_utc=None, strict_hours=False)
+        filtered = _deduplicate(filtered)
+
+        # Store raw dicts — no nav_url; distance_m is recomputed on every cache read.
+        await cache.set_cached(request.lat, request.lng, cache_radius, filtered)
+
+        all_places = [
+            Place(
+                name=c["name"], lat=c["lat"], lon=c["lon"],
+                distance_m=c["distance_m"], amenity=c.get("amenity") or "restaurant",
+                cuisine=c.get("cuisine"), opening_hours=c.get("opening_hours"),
+                contact_phone=c.get("contact_phone"),
+            )
+            for c in filtered
+        ]
+
+    if not all_places:
+        return []
+
+    # Trim to the exact requested radius (cache tier may be larger).
+    places: list[Place] = (
+        [p for p in all_places if p.distance_m <= radius_m]
+        if cache_radius > radius_m else all_places
+    )
     if not places:
         return []
 
@@ -337,7 +346,7 @@ async def stream_search(
     intent: PlaceIntent = await intent_parser.parse_intent(request.query, ai_client)
     yield _intent_event(intent, request.query)
 
-    venue_types = [vt for vt in intent.venue_types if vt in _VALID_VENUE_TYPES] or [
+    venue_types = [vt for vt in intent.venue_types if vt in VALID_AMENITIES] or [
         "restaurant", "cafe", "bar", "pub"
     ]
 
@@ -385,7 +394,7 @@ async def stream_search(
                     budget=request.budget,
                     preferences=preferences, time_context=time_context, pre_scores=pre_scores,
                     http_client=http_client, lat=request.lat, lng=request.lng,
-                    on_search=_on_search,
+                    on_search=_on_search, lang=request.lang,
                 )
             finally:
                 await progress_q.put(None)
@@ -439,7 +448,7 @@ async def stream_search(
     try:
         ranked = await ranker.rank_places(
             places, request.query, intent, ai_client,
-            preferences=preferences, time_context=time_context,
+            preferences=preferences, time_context=time_context, lang=request.lang,
         )
     except Exception:
         logger.exception("ranker failed for query %r, using fallback", request.query)
@@ -461,7 +470,7 @@ async def stream_search(
                 try:
                     ranked = await ranker.rank_places(
                         places, request.query, intent, ai_client,
-                        preferences=preferences, time_context=time_context,
+                        preferences=preferences, time_context=time_context, lang=request.lang,
                     )
                 except Exception:
                     logger.exception("ranker failed on widen for query %r, using fallback", request.query)

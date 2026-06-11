@@ -16,6 +16,11 @@ Do not penalise them unless the user explicitly asked for fine dining or sit-dow
 If the venue name clearly belongs to a global fast-food chain (McDonald's, KFC, Subway, Burger King, Starbucks, Pizza Hut, etc.) and the user asked for authentic, local, or specific cuisine — score it 0.1 or lower.
 Exception: if the user explicitly asked for fast food chains, score normally.
 
+## Dessert and coffee-only venues are specialty destinations
+Venues whose cuisine is primarily: cake, chocolate, ice_cream, dessert, pastry, coffee_shop (without savory food tags) — are specialty spots, not general meal destinations.
+- If the user query mentions dessert, sweets, coffee, chocolate, cake, ice cream → score normally.
+- If the query is general ("something to eat", "lunch", "dinner", "good place nearby") → score these 0.3 or lower; they are not meal replacements.
+
 ## How to use the Intent fields
 The intent JSON contains:
 - `venue_types` — the types the user wants; a bar when user asked for a cafe is a bad match

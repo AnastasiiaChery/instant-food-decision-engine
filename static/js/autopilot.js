@@ -4,6 +4,7 @@ import { setStatus, useProfile } from './ui.js';
 import { getLocation, consumeSSE } from './api.js';
 import { placeUserPin, showMapTrigger, clearMarkers } from './map.js';
 import { renderRecommendation } from './render.js';
+import { t, getLang } from './i18n.js';
 
 export async function doAutopilot() {
   const btn = document.getElementById('autopilotBtn');
@@ -13,7 +14,7 @@ export async function doAutopilot() {
   state.cardMap.clear();
   clearMarkers();
   showMapTrigger(0);
-  setStatus('Requesting location…', 'loading');
+  setStatus(t('status.requestingLocation'), 'loading');
 
   let lat, lng;
   try { ({ lat, lng } = await getLocation()); }
@@ -25,31 +26,31 @@ export async function doAutopilot() {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
-        mode: 'autopilot', lat, lng, use_profile: useProfile(),
+        mode: 'autopilot', lat, lng, use_profile: useProfile(), lang: getLang(),
         ...(state.autopilotSeen.length ? { exclude_place_names: state.autopilotSeen } : {}),
       }),
     });
-    if (!res.ok) { setStatus(`Error ${res.status}`, 'error'); btn.disabled = false; return; }
+    if (!res.ok) { setStatus(t('status.error', { code: res.status }), 'error'); btn.disabled = false; return; }
 
     await consumeSSE(res, (evType, payload) => {
       if (evType === 'searching') {
-        setStatus(`Searching nearby${payload.radius_m ? ` (${payload.radius_m}m)` : ''}…`, 'loading');
+        setStatus(t('status.searchingNearby', { radius: payload.radius_m ? ` (${payload.radius_m}m)` : '' }), 'loading');
       } else if (evType === 'places') {
         const places = payload.places || payload;
-        setStatus(`Analysing ${places.length} candidates…`, 'loading');
+        setStatus(t('status.analysing', { count: places.length }), 'loading');
       } else if (evType === 'recommendation') {
         const name = payload.place?.name;
         if (name && !state.autopilotSeen.includes(name)) state.autopilotSeen.push(name);
         renderRecommendation(payload, true, doAutopilot);
-        setStatus("Here's your place", 'done');
+        setStatus(t('status.yourPlace'), 'done');
       } else if (evType === 'no_match') {
-        setStatus('No matching places found — try a wider radius or different query.', 'error');
+        setStatus(t('status.noMatchAutopilot'), 'error');
       } else if (evType === 'error') {
-        setStatus(payload.detail || 'Something went wrong.', 'error');
+        setStatus(payload.detail || t('status.somethingWrong'), 'error');
       }
     });
   } catch (err) {
-    setStatus(`Error: ${err.message}`, 'error');
+    setStatus(t('status.errorMsg', { message: err.message }), 'error');
   } finally {
     btn.disabled = false;
   }

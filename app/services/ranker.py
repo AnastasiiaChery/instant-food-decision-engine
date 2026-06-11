@@ -55,6 +55,7 @@ async def rank_places(
     llm: ChatGroq,
     preferences: UserPreferences | None = None,
     time_context: str | None = None,
+    lang: str = "en",
 ) -> list[RankedPlace]:
     if not places:
         return []
@@ -84,6 +85,8 @@ async def rank_places(
             user_message += f"\nCuisines this user loves: {', '.join(preferences.cuisines_liked)}"
         if preferences.cuisines_disliked:
             user_message += f"\nCuisines this user dislikes (score these lower): {', '.join(preferences.cuisines_disliked)}"
+    if lang and lang != "en":
+        user_message += f"\n\nWrite every \"reason\" text in the language with ISO code '{lang}'."
 
     chain = (_prompt | llm.with_structured_output(_RankingOutput)).with_retry(stop_after_attempt=2)
     try:

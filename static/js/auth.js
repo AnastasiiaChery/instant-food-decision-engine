@@ -1,5 +1,6 @@
 import { TOKEN_KEY, ONBOARDED_KEY, getToken, setToken, parseJwt, isTokenValid } from './utils.js';
 import { openDrawer } from './drawer.js';
+import { t } from './i18n.js';
 
 export function openAuthModal(tab) {
   document.getElementById('authModal').classList.add('open');
@@ -107,7 +108,7 @@ document.getElementById('loginSubmit').addEventListener('click', async () => {
   const email    = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
   const errEl    = document.getElementById('authError');
-  if (!email || !password) { errEl.textContent = 'Please fill in all fields.'; return; }
+  if (!email || !password) { errEl.textContent = t('auth.fillFields'); return; }
   const btn = document.getElementById('loginSubmit');
   btn.disabled = true;
   try {
@@ -116,9 +117,9 @@ document.getElementById('loginSubmit').addEventListener('click', async () => {
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json();
-    if (!res.ok) { errEl.textContent = data.detail || 'Sign in failed.'; return; }
+    if (!res.ok) { errEl.textContent = data.detail || t('auth.signInFailed'); return; }
     await handleAuthSuccess(data.token);
-  } catch { errEl.textContent = 'Network error. Please try again.'; }
+  } catch { errEl.textContent = t('auth.networkError'); }
   finally { btn.disabled = false; }
 });
 
@@ -127,8 +128,8 @@ document.getElementById('registerSubmit').addEventListener('click', async () => 
   const email    = document.getElementById('registerEmail').value.trim();
   const password = document.getElementById('registerPassword').value;
   const errEl    = document.getElementById('authError');
-  if (!email || !password) { errEl.textContent = 'Email and password are required.'; return; }
-  if (password.length < 8)  { errEl.textContent = 'Password must be at least 8 characters.'; return; }
+  if (!email || !password) { errEl.textContent = t('auth.emailPasswordRequired'); return; }
+  if (password.length < 8)  { errEl.textContent = t('auth.passwordMin'); return; }
   const btn = document.getElementById('registerSubmit');
   btn.disabled = true;
   try {
@@ -137,8 +138,8 @@ document.getElementById('registerSubmit').addEventListener('click', async () => 
       body: JSON.stringify({ email, password, display_name: name }),
     });
     const data = await res.json();
-    if (!res.ok) { errEl.textContent = data.detail || 'Registration failed.'; return; }
+    if (!res.ok) { errEl.textContent = data.detail || t('auth.registrationFailed'); return; }
     await handleAuthSuccess(data.token);
-  } catch { errEl.textContent = 'Network error. Please try again.'; }
+  } catch { errEl.textContent = t('auth.networkError'); }
   finally { btn.disabled = false; }
 });

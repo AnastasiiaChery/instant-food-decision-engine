@@ -4,6 +4,7 @@ import { setStatus, useProfile } from './ui.js';
 import { getLocation, consumeSSE } from './api.js';
 import { initMap, openMap, closeMap, placeUserPin, showMapTrigger, clearMarkers } from './map.js';
 import { renderPlanRecommendations } from './render.js';
+import { t, getLang } from './i18n.js';
 
 export function setPlanLocation(lat, lng, label) {
   initMap();
@@ -39,9 +40,9 @@ export async function doPlan() {
   let lat, lng;
   if (state.planCustomLocation) {
     ({ lat, lng } = state.planCustomLocation);
-    setStatus('Planning…', 'loading');
+    setStatus(t('status.planning'), 'loading');
   } else {
-    setStatus('Requesting location…', 'loading');
+    setStatus(t('status.requestingLocation'), 'loading');
     try { ({ lat, lng } = await getLocation()); }
     catch (err) { setStatus(err.message, 'error'); btn.disabled = false; return; }
   }
@@ -60,6 +61,7 @@ export async function doPlan() {
   try {
     const body = {
       mode: 'plan', lat, lng, when, group_size: group, use_profile: useProfile(),
+      lang: getLang(),
       radius_m: Math.round(parseFloat(document.getElementById('planRadiusSlider').value) * 1000),
       ...(budget ? { budget } : {}),
     };
@@ -68,31 +70,31 @@ export async function doPlan() {
     const res = await fetch('/api/v1/search', {
       method: 'POST', headers: authHeaders(), body: JSON.stringify(body),
     });
-    if (!res.ok) { setStatus(`Error ${res.status}`, 'error'); btn.disabled = false; return; }
+    if (!res.ok) { setStatus(t('status.error', { code: res.status }), 'error'); btn.disabled = false; return; }
 
     await consumeSSE(res, (evType, payload) => {
       if (evType === 'searching') {
-        setStatus('AI planning your dinner…', 'loading');
+        setStatus(t('status.aiPlanning'), 'loading');
       } else if (evType === 'places') {
-        setStatus('Finding best options…', 'loading');
+        setStatus(t('status.findingOptions'), 'loading');
       } else if (evType === 'planning') {
-        setStatus(payload.message || 'Planning…', 'loading');
+        setStatus(payload.message || t('status.planning'), 'loading');
       } else if (evType === 'recommendations') {
         renderPlanRecommendations(payload);
         const count = (payload.recommendations || []).length;
         if (payload.notice) {
-          setStatus(`${count} alternative${count !== 1 ? 's' : ''} — no exact match for your criteria`, 'warn');
+          setStatus(t(count === 1 ? 'status.alternative' : 'status.alternatives', { count }), 'warn');
         } else {
-          setStatus(`${count} curated options`, 'done');
+          setStatus(t('status.curatedOptions', { count }), 'done');
         }
       } else if (evType === 'no_match') {
-        setStatus('No matching places found — try a different query or wider radius.', 'error');
+        setStatus(t('status.noMatchPlan'), 'error');
       } else if (evType === 'error') {
-        setStatus(payload.detail || 'Something went wrong.', 'error');
+        setStatus(payload.detail || t('status.somethingWrong'), 'error');
       }
     });
   } catch (err) {
-    setStatus(`Error: ${err.message}`, 'error');
+    setStatus(t('status.errorMsg', { message: err.message }), 'error');
   } finally {
     btn.disabled = false;
   }
@@ -133,7 +135,7 @@ function ensurePlanMapClick() {
     setPlanLocation(lat, lng, `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
     state.planMapClickActive = false;
     const mt = document.querySelector('.map-title');
-    if (mt) mt.textContent = 'Nearby places';
+    if (mt) mt.textContent = t('map.nearbyPlaces');
     closeMap();
   });
 }
@@ -148,7 +150,7 @@ function handleLocChip(val) {
   if (val === 'map') {
     clearPlanLocation();
     const mapTitle = document.querySelector('.map-title');
-    if (mapTitle) mapTitle.textContent = 'Pick a location';
+    if (mapTitle) mapTitle.textContent = t('map.pickLocation');
     ensurePlanMapClick();
     openMap();
   }
@@ -195,7 +197,7 @@ addrInput.addEventListener('input', () => {
   addrDebounce = setTimeout(async () => {
     try {
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&limit=5`;
-      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      const res = await fetch(url, { headers: { 'Accept-Language': getLang() } });
       showSuggestions(await res.json());
     } catch { closeSuggestions(); }
   }, 300);

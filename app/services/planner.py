@@ -242,6 +242,7 @@ def _build_user_message(
     pre_scores: list[float] | None,
     preferences: UserPreferences | None,
     with_tools: bool = False,
+    lang: str = "en",
 ) -> str:
     places_payload = [
         {
@@ -271,6 +272,11 @@ def _build_user_message(
             msg += f"\nCuisines this user loves: {', '.join(preferences.cuisines_liked)}"
         if preferences.cuisines_disliked:
             msg += f"\nCuisines this user dislikes (avoid if possible): {', '.join(preferences.cuisines_disliked)}"
+    if lang and lang != "en":
+        msg += (
+            f"\n\nWrite every \"reason\" and \"scenario\" text in the language with "
+            f"ISO code '{lang}'. Keep place names in their original form."
+        )
     if with_tools:
         msg += (
             "\n\nIf the current venue list lacks suitable options for this occasion and group, "
@@ -312,6 +318,7 @@ async def plan_places(
     lat: float | None = None,
     lng: float | None = None,
     on_search: Callable[[list[str], float], Awaitable[None]] | None = None,
+    lang: str = "en",
 ) -> list[PlanRecommendation]:
     if not places:
         return []
@@ -322,7 +329,7 @@ async def plan_places(
 
     user_message = _build_user_message(
         query, group_size, budget, intent, time_context,
-        all_places, pre_scores, preferences, with_tools=can_search,
+        all_places, pre_scores, preferences, with_tools=can_search, lang=lang,
     )
 
     items: list[_FinalizePlanItem] | None = None
@@ -343,7 +350,7 @@ async def plan_places(
         chain_message = (
             _build_user_message(
                 query, group_size, budget, intent, time_context,
-                all_places, pre_scores, preferences, with_tools=False,
+                all_places, pre_scores, preferences, with_tools=False, lang=lang,
             )
             if can_search
             else user_message

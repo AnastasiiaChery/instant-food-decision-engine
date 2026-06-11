@@ -3,6 +3,7 @@ import { escHtml, safeUrl, authHeaders, getToken } from './utils.js';
 import { setStatus } from './ui.js';
 import { recordNavigate } from './api.js';
 import { initMap, openMap, clearMarkers, pinIcon, showMapTrigger } from './map.js';
+import { t } from './i18n.js';
 
 const TOP_N = 5;
 
@@ -14,9 +15,9 @@ export function addNoteWidget(container, place) {
   const wrap = document.createElement('div');
   wrap.className = 'place-note-wrap';
   wrap.innerHTML = `
-    <button class="place-note-toggle">+ add a note</button>
+    <button class="place-note-toggle">${escHtml(t('card.addNote'))}</button>
     <textarea class="place-note-input" rows="2" maxlength="500"
-      placeholder="Loved it, too noisy, great terrace…"></textarea>
+      placeholder="${escHtml(t('card.notePlaceholder'))}"></textarea>
   `;
   container.appendChild(wrap);
   wrap.querySelector('.place-note-toggle').addEventListener('click', () => {
@@ -30,7 +31,7 @@ export function addNoteWidget(container, place) {
 export function addFavButton(container, place) {
   const btn = document.createElement('button');
   btn.className = 'fav-btn' + (getToken() ? ' visible' : '');
-  btn.title = 'Save to favourites';
+  btn.title = t('card.saveFav');
   btn.textContent = '♡';
   btn.addEventListener('click', e => {
     e.stopPropagation();
@@ -58,7 +59,7 @@ function addShowMoreBtn(total) {
   const hidden = total - TOP_N;
   const btn = document.createElement('button');
   btn.className = 'show-more-btn';
-  btn.textContent = `Show ${hidden} more place${hidden !== 1 ? 's' : ''}`;
+  btn.textContent = t(hidden === 1 ? 'card.showMoreOne' : 'card.showMore', { count: hidden });
   btn.addEventListener('click', () => {
     cardsGrid.querySelectorAll('.card-hidden').forEach(c => c.classList.remove('card-hidden'));
     btn.remove();
@@ -82,12 +83,12 @@ export function renderPlaces(places) {
     card.innerHTML = `
       <div class="card-head">
         <div class="rank-badge">${i + 1}</div>
-        <div class="card-name">${escHtml(p.name || 'Unnamed')}</div>
+        <div class="card-name">${escHtml(p.name || t('card.unnamed'))}</div>
         <div class="score-pill"></div>
       </div>
-      <div class="card-meta">${Math.round(p.distance_m)}m · ${escHtml(p.amenity || 'food')}${cuisine}</div>
+      <div class="card-meta">${Math.round(p.distance_m)}m · ${escHtml(p.amenity || t('card.food'))}${cuisine}</div>
       <div class="card-reason"><div class="skel"></div><div class="skel short"></div></div>
-      <a class="card-nav" href="${escHtml(safeUrl(p.nav_url))}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+      <a class="card-nav" href="${escHtml(safeUrl(p.nav_url))}" target="_blank" rel="noopener noreferrer">${escHtml(t('card.navigate'))}</a>
     `;
     cardsGrid.appendChild(card);
     const getNotes = addNoteWidget(card, p);
@@ -160,15 +161,15 @@ export function renderRecommendation(data, animate = true, onRetry = null) {
   card.className = 'rec-card';
   if (animate) card.style.animation = 'fadeUp 0.3s ease both';
   card.innerHTML = `
-    <div class="rec-badge">AI pick</div>
-    <div class="rec-name">${escHtml(place.name || 'Unnamed')}</div>
-    <div class="rec-meta">${escHtml(place.amenity || 'food')}${cuisine}</div>
+    <div class="rec-badge">${escHtml(t('rec.aiPick'))}</div>
+    <div class="rec-name">${escHtml(place.name || t('card.unnamed'))}</div>
+    <div class="rec-meta">${escHtml(place.amenity || t('card.food'))}${cuisine}</div>
     ${signalHtml}
-    <div class="rec-why-label">Why this?</div>
+    <div class="rec-why-label">${escHtml(t('rec.whyThis'))}</div>
     <div class="rec-reason"></div>
     <div class="rec-actions">
-      <a class="rec-nav" href="${escHtml(safeUrl(place.nav_url))}" target="_blank" rel="noopener noreferrer">Navigate →</a>
-      <button class="rec-another">${state.recFallback ? 'Show another option' : 'Try again'}</button>
+      <a class="rec-nav" href="${escHtml(safeUrl(place.nav_url))}" target="_blank" rel="noopener noreferrer">${escHtml(t('card.navigate'))}</a>
+      <button class="rec-another">${escHtml(state.recFallback ? t('rec.showAnother') : t('rec.tryAgain'))}</button>
     </div>
   `;
   card.querySelector('.rec-reason').textContent = reason || '';
@@ -184,7 +185,7 @@ export function renderRecommendation(data, animate = true, onRetry = null) {
       card.classList.add('swapping');
       setTimeout(() => {
         renderRecommendation(fb, false, onRetry);
-        setStatus("Here's another option", 'done');
+        setStatus(t('status.anotherOption'), 'done');
       }, 180);
     } else if (onRetry) {
       onRetry();
@@ -222,12 +223,12 @@ export function renderPlanRecommendations(data) {
     card.innerHTML = `
       <div class="card-head">
         <div class="rank-badge">${i + 1}</div>
-        <div class="card-name">${escHtml(place.name || 'Unnamed')}</div>
+        <div class="card-name">${escHtml(place.name || t('card.unnamed'))}</div>
         ${scenario ? `<div class="score-pill show">${escHtml(scenario)}</div>` : ''}
       </div>
-      <div class="card-meta">${Math.round(place.distance_m)}m · ${escHtml(place.amenity || 'food')}${cuisine}</div>
+      <div class="card-meta">${Math.round(place.distance_m)}m · ${escHtml(place.amenity || t('card.food'))}${cuisine}</div>
       <div class="card-reason"></div>
-      <a class="card-nav" href="${escHtml(safeUrl(place.nav_url))}" target="_blank" rel="noopener noreferrer">Navigate →</a>
+      <a class="card-nav" href="${escHtml(safeUrl(place.nav_url))}" target="_blank" rel="noopener noreferrer">${escHtml(t('card.navigate'))}</a>
     `;
     card.querySelector('.card-reason').textContent = reason || '';
     cardsGrid.appendChild(card);

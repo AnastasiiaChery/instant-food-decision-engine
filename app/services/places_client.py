@@ -219,6 +219,26 @@ def _metadata_score(c: dict[str, Any]) -> float:
     ]) / 3.0
 
 
+def _filter_candidates(
+    candidates: list[dict],
+    max_distance_m: int,
+    now_utc: datetime | None,
+    strict_hours: bool = True,
+) -> list[dict]:
+    result = []
+    for c in candidates:
+        if c["distance_m"] > max_distance_m:
+            continue
+        if c.get("amenity") not in VALID_AMENITIES:
+            continue
+        if _is_explicitly_closed(c.get("opening_hours")):
+            continue
+        if strict_hours and not _is_open_now(c.get("opening_hours"), now_utc=now_utc):
+            continue
+        result.append(c)
+    return result
+
+
 class OverpassPlacesClient:
     async def fetch(
         self,
@@ -234,19 +254,19 @@ class OverpassPlacesClient:
         # filter_open=False returns a time-agnostic set (callers that cache across
         # different `when` values apply the open-now filter themselves per request).
         candidates = await _fetch_raw(lat, lng, venue_types, radius_m, http_client)
-        filtered = self._filter(candidates, radius_m, now_utc, strict_hours=filter_open)
+        filtered = _filter_candidates(candidates, radius_m, now_utc, strict_hours=filter_open)
         filtered = _deduplicate(filtered)
 
         # expand radius if too few results
         if len(filtered) < 5 and max_radius_m and max_radius_m > radius_m:
             candidates = await _fetch_raw(lat, lng, venue_types, max_radius_m, http_client)
-            filtered = self._filter(candidates, max_radius_m, now_utc, strict_hours=filter_open)
+            filtered = _filter_candidates(candidates, max_radius_m, now_utc, strict_hours=filter_open)
             filtered = _deduplicate(filtered)
 
         # fallback: relax "open now" — keep everything except explicitly closed
         if not filtered:
             candidates = await _fetch_raw(lat, lng, venue_types, max_radius_m or radius_m, http_client)
-            filtered = self._filter(candidates, max_radius_m or radius_m, now_utc, strict_hours=False)
+            filtered = _filter_candidates(candidates, max_radius_m or radius_m, now_utc, strict_hours=False)
             filtered = _deduplicate(filtered)
 
         return [
@@ -262,26 +282,6 @@ class OverpassPlacesClient:
             )
             for c in filtered
         ]
-
-    def _filter(
-        self,
-        candidates: list[dict],
-        max_distance_m: int,
-        now_utc: datetime | None,
-        strict_hours: bool = True,
-    ) -> list[dict]:
-        result = []
-        for c in candidates:
-            if c["distance_m"] > max_distance_m:
-                continue
-            if c.get("amenity") not in VALID_AMENITIES:
-                continue
-            if _is_explicitly_closed(c.get("opening_hours")):
-                continue
-            if strict_hours and not _is_open_now(c.get("opening_hours"), now_utc=now_utc):
-                continue
-            result.append(c)
-        return result
 
 
 def passes_min_quality_filters(

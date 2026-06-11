@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { t } from './i18n.js';
 
 const mapModal = document.getElementById('mapModal');
 
@@ -28,7 +29,7 @@ export function closeMap() {
   if (state.planMapClickActive) {
     state.planMapClickActive = false;
     const mapTitle = document.querySelector('.map-title');
-    if (mapTitle) mapTitle.textContent = 'Nearby places';
+    if (mapTitle) mapTitle.textContent = t('map.nearbyPlaces');
     if (!state.planCustomLocation) {
       document.querySelectorAll('.plan-chip[data-group="loc"]').forEach(c => c.classList.remove('active'));
       document.querySelector('.plan-chip[data-group="loc"][data-val="gps"]')?.classList.add('active');
@@ -39,8 +40,8 @@ export function closeMap() {
 
 export function showMapTrigger(count) {
   document.getElementById('mapTrigger').classList.toggle('show', count > 0);
-  const t = document.querySelector('.map-title');
-  if (t) t.textContent = count === 1 ? '1 place nearby' : `${count} places nearby`;
+  const titleEl = document.querySelector('.map-title');
+  if (titleEl) titleEl.textContent = count === 1 ? t('map.onePlaceNearby') : t('map.placesNearby', { count });
 }
 
 export function clearMarkers() {
@@ -63,7 +64,7 @@ export function placeUserPin(lat, lng) {
   if (state.userCircle) state.userCircle.remove();
   state.userCircle = L.circleMarker([lat, lng], {
     radius: 7, fillColor: '#2455d4', color: '#fff', weight: 2.5, fillOpacity: 1,
-  }).addTo(state.map).bindPopup('You are here');
+  }).addTo(state.map).bindPopup(t('map.youAreHere'));
 }
 
 // Map modal event listeners
