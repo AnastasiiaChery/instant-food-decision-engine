@@ -37,33 +37,77 @@ def _distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * earth_radius_m * asin(sqrt(a))
 
 
+_DAYS = ["mo", "tu", "we", "th", "fr", "sa", "su"]
+
+
+def _day_applies(day_part: str, day_idx: int) -> bool:
+    """Does a segment's day spec (e.g. 'mo-fr', 'we-th', 'mo, su', '') cover today?
+
+    Empty spec → applies every day. A spec with day tokens that don't include
+    today → not applicable. A spec with no recognisable day tokens (e.g. 'ph') →
+    treated as applicable (lenient, avoids over-filtering on exotic rules).
+    """
+    if not day_part:
+        return True
+    found_day_token = False
+    for part in day_part.split(","):
+        days = re.findall(r"mo|tu|we|th|fr|sa|su", part)
+        if not days:
+            continue
+        found_day_token = True
+        if "-" in part and len(days) >= 2:
+            start, end = _DAYS.index(days[0]), _DAYS.index(days[-1])
+            if start <= end:
+                if start <= day_idx <= end:
+                    return True
+            elif day_idx >= start or day_idx <= end:  # wrap-around, e.g. fr-mo
+                return True
+        elif any(_DAYS.index(d) == day_idx for d in days):
+            return True
+    return not found_day_token
+
+
 def _is_open_now(opening_hours: str | None, now_utc: datetime | None = None) -> bool:
     if not opening_hours:
         return True
     normalized = opening_hours.strip().lower()
-    if normalized in {"24/7", "24h"}:
+    if normalized in {"24/7", "24h", "24x7"}:
         return True
-    if "off" in normalized or "closed" in normalized:
-        return False
 
     current = now_utc or datetime.now(UTC)
-    day_token = ["mo", "tu", "we", "th", "fr", "sa", "su"][current.weekday()]
-    current_minutes = current.hour * 60 + current.minute
+    day_idx = current.weekday()
+    now_min = current.hour * 60 + current.minute
 
-    for segment in normalized.split(";"):
-        segment = segment.strip()
+    applicable_found = False
+    for raw in normalized.split(";"):
+        segment = raw.strip()
         if not segment:
             continue
-        if day_token not in segment and "-" not in segment:
+        is_off = "off" in segment or "closed" in segment
+        time_start = re.search(r"\d{1,2}:\d{2}", segment)
+        if time_start:
+            day_part = segment[: time_start.start()]
+        else:  # no times: "off", "mo-fr off", "su closed"
+            day_part = segment.replace("off", "").replace("closed", "")
+        day_part = day_part.strip().strip(",").strip()
+
+        if not _day_applies(day_part, day_idx):
             continue
-        matches = re.findall(r"(\d{2}):(\d{2})-(\d{2}):(\d{2})", segment)
-        for h1, m1, h2, m2 in matches:
+        applicable_found = True
+        if is_off:
+            return False
+        for h1, m1, h2, m2 in re.findall(r"(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})", segment):
             start = int(h1) * 60 + int(m1)
             end = int(h2) * 60 + int(m2)
-            if start <= current_minutes <= end:
+            if end <= start:  # overnight span, e.g. 14:00-02:00
+                if now_min >= start or now_min <= end:
+                    return True
+            elif start <= now_min <= end:
                 return True
 
-    return True
+    # A segment covered today but no time window matched → closed.
+    # No segment mentioned today → hours unknown for today → stay lenient.
+    return not applicable_found
 
 
 def _candidate_key(candidate: dict[str, Any]) -> str:
@@ -185,15 +229,18 @@ class OverpassPlacesClient:
         http_client: httpx.AsyncClient,
         max_radius_m: int | None = None,
         now_utc: datetime | None = None,
+        filter_open: bool = True,
     ) -> list[Place]:
+        # filter_open=False returns a time-agnostic set (callers that cache across
+        # different `when` values apply the open-now filter themselves per request).
         candidates = await _fetch_raw(lat, lng, venue_types, radius_m, http_client)
-        filtered = self._filter(candidates, radius_m, now_utc, strict_hours=True)
+        filtered = self._filter(candidates, radius_m, now_utc, strict_hours=filter_open)
         filtered = _deduplicate(filtered)
 
         # expand radius if too few results
         if len(filtered) < 5 and max_radius_m and max_radius_m > radius_m:
             candidates = await _fetch_raw(lat, lng, venue_types, max_radius_m, http_client)
-            filtered = self._filter(candidates, max_radius_m, now_utc, strict_hours=True)
+            filtered = self._filter(candidates, max_radius_m, now_utc, strict_hours=filter_open)
             filtered = _deduplicate(filtered)
 
         # fallback: relax "open now" — keep everything except explicitly closed

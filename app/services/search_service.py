@@ -16,7 +16,7 @@ from app.models.place import Place
 from app.models.profile import UserPreferences
 from app.models.search import PlaceIntent, PlanRecommendation, RankedPlace, SearchRequest
 from app.services import intent_parser, planner, ranker
-from app.services.places_client import OverpassPlacesClient
+from app.services.places_client import OverpassPlacesClient, _is_open_now
 
 _places_client = OverpassPlacesClient()
 
@@ -33,21 +33,27 @@ _NAMED_WHEN: dict[str, str] = {
 }
 
 
-def _parse_when_utc(when: str | None, lng: float | None = None) -> datetime | None:
-    if not when:
-        return None
-    normalized = when.strip().lower()
+def _parse_when_utc(when: str | None, lng: float | None = None) -> datetime:
+    """Resolve the reference time for the open-now filter, in UTC.
+
+    "now"/empty/unparseable → current local time, so even one-tap autopilot
+    (which never sends `when`) avoids recommending a venue that is closed right
+    now. A named meal or explicit HH:MM → that time today, in the location's
+    approximate timezone.
+    """
+    offset_hours = max(-12, min(14, round((lng or 0) / 15)))
+    local_tz = timezone(timedelta(hours=offset_hours))
+    now_local = datetime.now(local_tz)
+
+    normalized = (when or "").strip().lower()
     if normalized in ("now", ""):
-        return None
+        return now_local.astimezone(UTC)
     time_str = _NAMED_WHEN.get(normalized, when)
     try:
         t = datetime.strptime(time_str, "%H:%M").time()
     except ValueError:
-        return None
-    offset_hours = max(-12, min(14, round((lng or 0) / 15)))
-    local_tz = timezone(timedelta(hours=offset_hours))
-    local_dt = datetime.now(local_tz).replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
-    return local_dt.astimezone(UTC)
+        return now_local.astimezone(UTC)
+    return now_local.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0).astimezone(UTC)
 
 
 def _local_time_str(lat: float, lng: float) -> str:
@@ -119,9 +125,33 @@ def _ranked_event(ranked: list[RankedPlace]) -> str:
     return f"event: ranked\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-def _plan_recommendations_event(recs: list[PlanRecommendation]) -> str:
-    data = [r.model_dump() for r in recs]
-    return f"event: recommendations\ndata: {json.dumps({'recommendations': data}, ensure_ascii=False)}\n\n"
+def _plan_recommendations_event(
+    recs: list[PlanRecommendation], notice: str | None = None
+) -> str:
+    payload: dict[str, Any] = {"recommendations": [r.model_dump() for r in recs]}
+    if notice:
+        payload["notice"] = notice
+    return f"event: recommendations\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _relaxed_notice(intent: PlaceIntent) -> str:
+    """Message shown when no venue clears the match threshold, but we still surface
+    the best-rated alternatives so the user can refine rather than hit a dead end."""
+    wanted: list[str] = []
+    if intent.cuisine:
+        wanted.append(f"{', '.join(intent.cuisine)} cuisine")
+    if intent.features:
+        wanted.append(", ".join(intent.features))
+    criteria = " · ".join(wanted)
+    if criteria:
+        return (
+            f"No spots matching {criteria} nearby. "
+            "Showing the best-rated alternatives — widen the radius or change your query to refine."
+        )
+    return (
+        "Nothing closely matched your exact criteria nearby. "
+        "Showing the best-rated alternatives — widen the radius or adjust your query to refine."
+    )
 
 
 def _no_match_event(query: str) -> str:
@@ -129,11 +159,17 @@ def _no_match_event(query: str) -> str:
     return f"event: no_match\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def _planning_event(message: str) -> str:
+    """Intermediate progress for the (potentially slow) plan-mode agent run."""
+    return f"event: planning\ndata: {json.dumps({'message': message}, ensure_ascii=False)}\n\n"
+
+
 def _error_event(message: str) -> str:
     return f"event: error\ndata: {json.dumps({'detail': message})}\n\n"
 
 
 _PLAN_NO_MATCH_THRESHOLD = 0.4  # fixed for plan mode (planner agent handles expansion)
+_PLAN_TIMEOUT_S = 25.0  # hard budget for the agentic planner run before falling back
 
 _OUTDOOR_KW = frozenset({"terrace", "rooftop", "outdoor", "garden", "patio", "balcony"})
 _QUIET_KW = frozenset({"quiet", "cozy", "intimate", "calm"})
@@ -200,6 +236,93 @@ def _quality_score(p: Place, intent: PlaceIntent) -> float:
     return score
 
 
+async def _prepare_places(
+    request: SearchRequest,
+    radius_m: int,
+    venue_types: list[str],
+    intent: PlaceIntent,
+    now_utc: datetime,
+    http_client: httpx.AsyncClient,
+) -> list[Place]:
+    """Fetch (cached) + filter + sort venues for one radius.
+
+    Raises the underlying error if *all* Overpass fetches fail; returns [] when
+    the area simply has nothing. Safe to call more than once per request (e.g.
+    autopilot retry at a wider radius).
+    """
+    cached = await cache.get_cached(request.lat, request.lng, venue_types, radius_m)
+    if cached is not None:
+        all_places: list[Place] = [Place(**d) for d in cached]
+    else:
+        fetch_results = await asyncio.gather(
+            *[
+                _places_client.fetch(
+                    lat=request.lat,
+                    lng=request.lng,
+                    venue_types=[vt],
+                    radius_m=radius_m,
+                    http_client=http_client,
+                    max_radius_m=settings.max_radius_m,
+                    filter_open=False,  # cache stays time-agnostic; open-now applied below per request
+                )
+                for vt in venue_types
+            ],
+            return_exceptions=True,
+        )
+        errors = [r for r in fetch_results if isinstance(r, Exception)]
+        if errors:
+            logger.warning(
+                "places fetch: %d/%d venue types failed at (%.4f, %.4f): %s",
+                len(errors), len(venue_types),
+                request.lat, request.lng, errors[0],
+            )
+        if len(errors) == len(fetch_results):
+            raise errors[0]
+        all_places = []
+        seen_keys: set[str] = set()
+        for batch in fetch_results:
+            if isinstance(batch, Exception):
+                continue
+            for p in batch:
+                key = f"{p.name.lower()}|{p.lat:.5f}|{p.lon:.5f}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    all_places.append(p)
+        await cache.set_cached(
+            request.lat, request.lng, venue_types, radius_m,
+            [p.model_dump() for p in all_places],
+        )
+
+    places: list[Place] = all_places
+    if not places:
+        return []
+
+    # Open-now filter for the reference time (`when`, or current time for autopilot /
+    # "now"). Applied here — not at fetch — so the fetch cache stays time-agnostic and
+    # reusable across breakfast/lunch/dinner. `_is_open_now` is lenient on unknown OSM
+    # hours (keeps them), so only explicitly-closed venues are dropped. If nothing is
+    # open at that hour, keep the full set rather than show nothing.
+    open_places = [p for p in places if _is_open_now(p.opening_hours, now_utc=now_utc)]
+    if open_places:
+        places = open_places
+
+    # Mood-based distance cap: "quick" searches should only see walkable options
+    if intent.mood == "quick":
+        capped = [p for p in places if p.distance_m <= _QUICK_MOOD_MAX_M]
+        if capped:
+            places = capped
+
+    # Venue type filter: if intent specifies types and enough exist, drop irrelevant ones
+    # so AI focuses on what the user actually wants (bars when asking for cocktails, etc.)
+    if intent.venue_types:
+        intended = set(intent.venue_types)
+        typed = [p for p in places if p.amenity in intended]
+        if len(typed) >= 5:
+            places = typed
+
+    return sorted(places, key=lambda p: _quality_score(p, intent), reverse=True)[:30]
+
+
 async def stream_search(
     request: SearchRequest,
     http_client: httpx.AsyncClient,
@@ -219,116 +342,98 @@ async def stream_search(
     ]
 
     try:
-        cached = await cache.get_cached(request.lat, request.lng, venue_types, radius_m)
-        if cached is not None:
-            all_places: list[Place] = [Place(**d) for d in cached]
-        else:
-            fetch_results = await asyncio.gather(
-                *[
-                    _places_client.fetch(
-                        lat=request.lat,
-                        lng=request.lng,
-                        venue_types=[vt],
-                        radius_m=radius_m,
-                        http_client=http_client,
-                        max_radius_m=settings.max_radius_m,
-                        now_utc=now_utc,
-                    )
-                    for vt in venue_types
-                ],
-                return_exceptions=True,
-            )
-            errors = [r for r in fetch_results if isinstance(r, Exception)]
-            if errors:
-                logger.warning(
-                    "places fetch: %d/%d venue types failed at (%.4f, %.4f): %s",
-                    len(errors), len(venue_types),
-                    request.lat, request.lng, errors[0],
-                )
-            if len(errors) == len(fetch_results):
-                yield _error_event(str(errors[0]))
-                return
-            all_places = []
-            seen_keys: set[str] = set()
-            for batch in fetch_results:
-                if isinstance(batch, Exception):
-                    continue
-                for p in batch:
-                    key = f"{p.name.lower()}|{p.lat:.5f}|{p.lon:.5f}"
-                    if key not in seen_keys:
-                        seen_keys.add(key)
-                        all_places.append(p)
-            await cache.set_cached(
-                request.lat, request.lng, venue_types, radius_m,
-                [p.model_dump() for p in all_places],
-            )
+        places = await _prepare_places(request, radius_m, venue_types, intent, now_utc, http_client)
     except Exception as exc:
         logger.exception("places fetch failed at (%.4f, %.4f)", request.lat, request.lng)
         yield _error_event(str(exc))
         return
 
-    places: list[Place] = all_places
-
     if not places:
         yield _error_event("No suitable places found nearby.")
         return
 
-    # Mood-based distance cap: "quick" searches should only see walkable options
-    if intent.mood == "quick":
-        capped = [p for p in places if p.distance_m <= _QUICK_MOOD_MAX_M]
-        if capped:
-            places = capped
-
-    # Venue type filter: if intent specifies types and enough exist, drop irrelevant ones
-    # so AI focuses on what the user actually wants (bars when asking for cocktails, etc.)
-    if intent.venue_types:
-        intended = set(intent.venue_types)
-        typed = [p for p in places if p.amenity in intended]
-        if len(typed) >= 5:
-            places = typed
-
-    places = sorted(places, key=lambda p: _quality_score(p, intent), reverse=True)[:30]
-
     yield _place_event(places)
 
     if request.mode == "plan":
-        # Stage 1: rank to get pre-computed relevance scores
-        try:
-            ranked = await ranker.rank_places(
-                places, request.query, intent, ai_client,
-                preferences=preferences, time_context=time_context,
-            )
-        except Exception:
-            logger.exception("ranker failed in plan pre-stage for query %r", request.query)
-            ranked = ranker._fallback_ranking(places)
-
-        if not ranked or ranked[0].match_score < _PLAN_NO_MATCH_THRESHOLD:
-            yield _no_match_event(request.query)
-            return
-
-        # Stage 2: pass original places + pre-scores to planner
-        MIN_SCORE = 0.2
-        score_map = {r.name: r.match_score for r in ranked}
+        # Pick the planner's candidate set with the cheap pre-sort score we already
+        # use for the ordering above. The planner does its own semantic ranking (and
+        # can expand the search via tools), so a second full LLM pre-rank here was
+        # redundant — dropping it removes one Groq round-trip from every plan request.
         scored = sorted(
-            [(p, score_map.get(p.name, 0.0)) for p in places],
+            ((p, _quality_score(p, intent)) for p in places),
             key=lambda x: -x[1],
-        )
-        relevant = [(p, s) for p, s in scored if s >= MIN_SCORE] or scored[:10]
-        plan_places = [p for p, _ in relevant]
-        pre_scores = [s for _, s in relevant]
+        )[:15]
+        plan_places = [p for p, _ in scored]
+        pre_scores = [s for _, s in scored]
 
-        try:
-            recs = await planner.plan_places(
-                plan_places, request.query, intent,
-                request.group_size, ai_client,
-                budget=request.budget,
-                preferences=preferences, time_context=time_context, pre_scores=pre_scores,
-                http_client=http_client, lat=request.lat, lng=request.lng,
+        # Bridge the agent's (slow) tool calls to SSE: the planner runs as a task and
+        # pushes progress messages onto a queue we drain into the stream. A None
+        # sentinel marks completion.
+        progress_q: asyncio.Queue[str | None] = asyncio.Queue()
+
+        async def _on_search(venue_types: list[str], radius_km: float) -> None:
+            label = ", ".join(venue_types) or "more venues"
+            await progress_q.put(
+                _planning_event(f"Few good matches — expanding search ({label}, {radius_km:g}km)…")
             )
+
+        async def _run_planner() -> list[PlanRecommendation]:
+            try:
+                return await planner.plan_places(
+                    plan_places, request.query, intent,
+                    request.group_size, ai_client,
+                    budget=request.budget,
+                    preferences=preferences, time_context=time_context, pre_scores=pre_scores,
+                    http_client=http_client, lat=request.lat, lng=request.lng,
+                    on_search=_on_search,
+                )
+            finally:
+                await progress_q.put(None)
+
+        planner_task = asyncio.create_task(_run_planner())
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _PLAN_TIMEOUT_S
+        timed_out = False
+        try:
+            while True:
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    timed_out = True
+                    break
+                try:
+                    msg = await asyncio.wait_for(progress_q.get(), timeout=remaining)
+                except asyncio.TimeoutError:
+                    timed_out = True
+                    break
+                if msg is None:
+                    break
+                yield msg
+            if timed_out:
+                logger.warning(
+                    "planner exceeded %.0fs budget for query %r — using fallback",
+                    _PLAN_TIMEOUT_S, request.query,
+                )
+                recs = planner._fallback_recommendations(plan_places)
+            else:
+                recs = await planner_task
         except Exception:
             logger.exception("planner failed for query %r, using fallback", request.query)
             recs = planner._fallback_recommendations(plan_places)
-        yield _plan_recommendations_event(recs)
+        finally:
+            # On timeout or client disconnect (GeneratorExit) the task would otherwise
+            # keep running and burn Groq tokens — cancel it.
+            if not planner_task.done():
+                planner_task.cancel()
+
+        if not recs:
+            yield _no_match_event(request.query)
+            return
+
+        # The notice now reflects the planner's *final* fit scores (after any
+        # search_more_places expansion) rather than a pre-rank guess — so we don't
+        # warn "no exact match" when the agent actually found good options.
+        relaxed = max((r.match_score for r in recs), default=0.0) < _PLAN_NO_MATCH_THRESHOLD
+        yield _plan_recommendations_event(recs, notice=_relaxed_notice(intent) if relaxed else None)
         return
 
     try:
@@ -341,8 +446,30 @@ async def stream_search(
         ranked = ranker._fallback_ranking(places)
 
     if not ranked or ranked[0].match_score < _no_match_threshold(len(ranked)):
-        yield _no_match_event(request.query)
-        return
+        # Autopilot is one-tap — the user has no radius/query control, so "widen your
+        # radius" advice is useless. Retry once at the max radius before giving up.
+        if request.mode == "autopilot" and radius_m < settings.max_radius_m:
+            radius_m = settings.max_radius_m
+            try:
+                wider = await _prepare_places(request, radius_m, venue_types, intent, now_utc, http_client)
+            except Exception:
+                logger.exception("widen fetch failed for query %r", request.query)
+                wider = []
+            if wider:
+                places = wider
+                yield _place_event(places)
+                try:
+                    ranked = await ranker.rank_places(
+                        places, request.query, intent, ai_client,
+                        preferences=preferences, time_context=time_context,
+                    )
+                except Exception:
+                    logger.exception("ranker failed on widen for query %r, using fallback", request.query)
+                    ranked = ranker._fallback_ranking(places)
+
+        if not ranked or ranked[0].match_score < _no_match_threshold(len(ranked)):
+            yield _no_match_event(request.query)
+            return
 
     MIN_SCORE = 0.2
     relevant = [r for r in ranked if r.match_score >= MIN_SCORE]

@@ -17,24 +17,28 @@
   <header>
     <a class="brand" href="/">instant<em>food</em></a>
     <div class="header-tabs">
-      <button class="htab active" data-mode="autopilot">Autopilot</button>
-      <button class="htab" data-mode="plan">Plan</button>
+      <button class="htab active" data-mode="autopilot" data-i18n="nav.autopilot">Autopilot</button>
+      <button class="htab" data-mode="plan" data-i18n="nav.plan">Plan</button>
     </div>
     <div class="header-right">
+      <div id="langMenu" style="position:relative">
+        <button id="langBtn" class="lang-btn" aria-label="Language">🌐 <span id="langCurrent">EN</span></button>
+        <div id="langDropdown" class="lang-dropdown" style="display:none"></div>
+      </div>
       <div id="userMenu" style="position:relative;display:none">
         <button id="avatarBtn" class="avatar-btn">?</button>
         <div id="avatarDropdown" class="avatar-dropdown" style="display:none">
-          <button class="avatar-dd-item" id="ddProfile">Profile</button>
-          <button class="avatar-dd-item danger" id="ddSignOut">Sign out</button>
+          <button class="avatar-dd-item" id="ddProfile" data-i18n="nav.profile">Profile</button>
+          <button class="avatar-dd-item danger" id="ddSignOut" data-i18n="nav.signOut">Sign out</button>
         </div>
       </div>
-      <a id="authBtn" class="auth-btn" href="/auth/google">Sign in</a>
+      <a id="authBtn" class="auth-btn" href="/auth/google" data-i18n="nav.signIn">Sign in</a>
     </div>
   </header>
 
   <div class="mode-tabs">
-    <button class="mode-tab active" data-mode="autopilot">Autopilot</button>
-    <button class="mode-tab" data-mode="plan">Plan</button>
+    <button class="mode-tab active" data-mode="autopilot" data-i18n="nav.autopilot">Autopilot</button>
+    <button class="mode-tab" data-mode="plan" data-i18n="nav.plan">Plan</button>
   </div>
 
   <div class="content">
@@ -42,110 +46,110 @@
     <!-- Landing — shown only to guests -->
     <div id="landing">
       <div>
-        <h1 class="landing-title">Stop deciding.<br>Start <em>eating</em>.</h1>
-        <p class="landing-desc">AI finds the best restaurant near you — in seconds, matched to your mood, group size, and personal taste.</p>
+        <h1 class="landing-title" data-i18n-html="landing.title">Stop deciding.<br>Start <em>eating</em>.</h1>
+        <p class="landing-desc" data-i18n="landing.desc">AI finds the best restaurant near you — in seconds, matched to your mood, group size, and personal taste.</p>
         <div class="landing-cta">
-          <button class="landing-btn-primary" id="landingRegisterBtn">Create free account</button>
-          <button class="landing-btn-secondary" id="landingSignInBtn">Sign in</button>
+          <button class="landing-btn-primary" id="landingRegisterBtn" data-i18n="landing.createAccount">Create free account</button>
+          <button class="landing-btn-secondary" id="landingSignInBtn" data-i18n="landing.signIn">Sign in</button>
         </div>
       </div>
       <div class="landing-steps">
         <div class="landing-step">
           <div class="landing-step-icon">⚡</div>
-          <div class="landing-step-title">Autopilot</div>
-          <div class="landing-step-desc">One tap. AI instantly picks the best nearby place — no browsing, no overthinking.</div>
+          <div class="landing-step-title" data-i18n="landing.step1.title">Autopilot</div>
+          <div class="landing-step-desc" data-i18n="landing.step1.desc">One tap. AI instantly picks the best nearby place — no browsing, no overthinking.</div>
         </div>
         <div class="landing-step">
           <div class="landing-step-icon">🎯</div>
-          <div class="landing-step-title">Plan mode</div>
-          <div class="landing-step-desc">Set your group, budget, and vibe. Get a personalised shortlist with AI-written reasons for each pick.</div>
+          <div class="landing-step-title" data-i18n="landing.step2.title">Plan mode</div>
+          <div class="landing-step-desc" data-i18n="landing.step2.desc">Set your group, budget, and vibe. Get a personalised shortlist with AI-written reasons for each pick.</div>
         </div>
         <div class="landing-step">
           <div class="landing-step-icon">♥</div>
-          <div class="landing-step-title">Your taste</div>
-          <div class="landing-step-desc">Save favourites, set diet preferences. The AI remembers what you love and what to skip.</div>
+          <div class="landing-step-title" data-i18n="landing.step3.title">Your taste</div>
+          <div class="landing-step-desc" data-i18n="landing.step3.desc">Save favourites, set diet preferences. The AI remembers what you love and what to skip.</div>
         </div>
       </div>
-      <p class="landing-note">Free · No credit card · Works anywhere with a GPS signal</p>
+      <p class="landing-note" data-i18n="landing.note">Free · No credit card · Works anywhere with a GPS signal</p>
     </div>
 
     <div class="mode-panel active" id="panel-autopilot">
-      <p class="autopilot-label">Tired of deciding? Let AI pick for you.</p>
-      <button id="autopilotBtn">Find me food →</button>
+      <p class="autopilot-label" data-i18n="autopilot.label">Tired of deciding? Let AI pick for you.</p>
+      <button id="autopilotBtn" data-i18n="autopilot.button">Find me food →</button>
     </div>
 
     <div class="mode-panel" id="panel-plan">
       <div class="plan-inner">
         <div class="plan-row">
-          <span class="plan-label">When</span>
+          <span class="plan-label" data-i18n="plan.when">When</span>
           <div class="plan-chips">
-            <div class="plan-chip active" data-group="when" data-val="now">Right now</div>
-            <div class="plan-chip" data-group="when" data-val="breakfast">Breakfast</div>
-            <div class="plan-chip" data-group="when" data-val="lunch">Lunch</div>
-            <div class="plan-chip" data-group="when" data-val="dinner">Dinner</div>
-            <div class="plan-chip" data-group="when" data-val="custom">Pick time…</div>
+            <div class="plan-chip active" data-group="when" data-val="now" data-i18n="plan.when.now">Right now</div>
+            <div class="plan-chip" data-group="when" data-val="breakfast" data-i18n="plan.when.breakfast">Breakfast</div>
+            <div class="plan-chip" data-group="when" data-val="lunch" data-i18n="plan.when.lunch">Lunch</div>
+            <div class="plan-chip" data-group="when" data-val="dinner" data-i18n="plan.when.dinner">Dinner</div>
+            <div class="plan-chip" data-group="when" data-val="custom" data-i18n="plan.when.custom">Pick time…</div>
           </div>
         </div>
         <div class="plan-row" id="custom-time-row" style="display:none">
           <input id="planTimeInput" type="time" class="plan-text-input">
         </div>
         <div class="plan-row">
-          <span class="plan-label">Group</span>
+          <span class="plan-label" data-i18n="plan.group">Group</span>
           <div class="plan-chips">
-            <div class="plan-chip active" data-group="group" data-val="solo">Solo</div>
-            <div class="plan-chip" data-group="group" data-val="duo">2 people</div>
-            <div class="plan-chip" data-group="group" data-val="small_group">Small group</div>
-            <div class="plan-chip" data-group="group" data-val="large_group">Large group</div>
+            <div class="plan-chip active" data-group="group" data-val="solo" data-i18n="plan.group.solo">Solo</div>
+            <div class="plan-chip" data-group="group" data-val="duo" data-i18n="plan.group.duo">2 people</div>
+            <div class="plan-chip" data-group="group" data-val="small_group" data-i18n="plan.group.small">Small group</div>
+            <div class="plan-chip" data-group="group" data-val="large_group" data-i18n="plan.group.large">Large group</div>
           </div>
         </div>
         <div class="plan-row">
-          <span class="plan-label">Budget</span>
+          <span class="plan-label" data-i18n="plan.budget">Budget</span>
           <div class="plan-chips">
-            <div class="plan-chip active" data-group="budget" data-val="any">Any</div>
-            <div class="plan-chip" data-group="budget" data-val="budget">€ Budget</div>
-            <div class="plan-chip" data-group="budget" data-val="mid">€€ Mid-range</div>
-            <div class="plan-chip" data-group="budget" data-val="upscale">€€€ Upscale</div>
+            <div class="plan-chip active" data-group="budget" data-val="any" data-i18n="plan.budget.any">Any</div>
+            <div class="plan-chip" data-group="budget" data-val="budget" data-i18n="plan.budget.budget">€ Budget</div>
+            <div class="plan-chip" data-group="budget" data-val="mid" data-i18n="plan.budget.mid">€€ Mid-range</div>
+            <div class="plan-chip" data-group="budget" data-val="upscale" data-i18n="plan.budget.upscale">€€€ Upscale</div>
           </div>
         </div>
         <div class="plan-row">
-          <span class="plan-label">Preferences <span style="font-weight:400;text-transform:none">(optional)</span></span>
-          <input id="planQuery" type="text" class="plan-text-input" placeholder="e.g. vegetarian, cozy, no spicy food…">
+          <span class="plan-label"><span data-i18n="plan.preferences">Preferences</span> <span style="font-weight:400;text-transform:none" data-i18n="plan.preferences.optional">(optional)</span></span>
+          <input id="planQuery" type="text" class="plan-text-input" data-i18n-placeholder="plan.preferences.placeholder" placeholder="e.g. vegetarian, cozy, no spicy food…">
         </div>
         <div class="plan-row">
-          <span class="plan-label">Location</span>
+          <span class="plan-label" data-i18n="plan.location">Location</span>
           <div class="plan-loc-row">
-            <div class="plan-chip active" data-group="loc" data-val="gps">📍 My location</div>
-            <div class="plan-chip" data-group="loc" data-val="address">🔍 Address</div>
-            <div class="plan-chip" data-group="loc" data-val="map">🗺 Click on map</div>
+            <div class="plan-chip active" data-group="loc" data-val="gps" data-i18n="plan.location.gps">📍 My location</div>
+            <div class="plan-chip" data-group="loc" data-val="address" data-i18n="plan.location.address">🔍 Address</div>
+            <div class="plan-chip" data-group="loc" data-val="map" data-i18n="plan.location.map">🗺 Click on map</div>
           </div>
           <div class="plan-loc-input-wrap" id="plan-addr-wrap">
             <div style="position:relative;flex:1">
-              <input type="text" id="plan-addr-input" class="plan-text-input" placeholder="Type address or place name…" autocomplete="off">
+              <input type="text" id="plan-addr-input" class="plan-text-input" data-i18n-placeholder="plan.location.addrPlaceholder" placeholder="Type address or place name…" autocomplete="off">
               <div id="plan-addr-suggestions" class="addr-suggestions"></div>
             </div>
           </div>
           <div class="plan-loc-hint" id="plan-map-hint">
-            <span class="loc-dot"></span>Click anywhere on the map to set location
+            <span class="loc-dot"></span><span data-i18n="plan.location.mapHint">Click anywhere on the map to set location</span>
           </div>
           <div class="plan-loc-hint" id="plan-loc-set" style="color:var(--green,#16a34a)">
             <span class="loc-dot" style="background:var(--green,#16a34a);animation:none"></span>
-            <span id="plan-loc-label">Location set</span>
+            <span id="plan-loc-label" data-i18n="plan.location.set">Location set</span>
           </div>
         </div>
         <div class="plan-row">
-          <span class="plan-label">Radius</span>
+          <span class="plan-label" data-i18n="plan.radius">Radius</span>
           <div class="slider-row" style="flex:1;margin-top:0">
             <input id="planRadiusSlider" type="range" min="0.5" max="3" step="0.5" value="1.5" />
             <span id="planRadiusVal">1.5 km</span>
           </div>
         </div>
-        <button id="planBtn">Find options →</button>
+        <button id="planBtn" data-i18n="plan.button">Find options →</button>
       </div>
     </div>
 
     <div class="pref-toggle-row" id="prefToggleRow">
       <label class="pref-toggle-label">
-        <span>Apply my preferences</span>
+        <span data-i18n="pref.apply">Apply my preferences</span>
         <div class="toggle-sw">
           <input type="checkbox" id="useProfileToggle" checked>
           <span class="toggle-track"></span>
@@ -155,7 +159,7 @@
 
     <div id="statusBar">
       <div class="dot" id="dot"></div>
-      <span id="statusText">Ready</span>
+      <span id="statusText" data-i18n="status.ready">Ready</span>
     </div>
 
     <div id="results">
@@ -167,7 +171,7 @@
         <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
         <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
       </svg>
-      Show on map
+      <span data-i18n="map.showOnMap">Show on map</span>
     </button>
 
   </div>
@@ -188,25 +192,25 @@
       <button class="auth-modal-close" id="authModalClose">✕</button>
       <div class="auth-modal-title">instant<em style="color:var(--accent);font-style:normal">food</em></div>
       <div class="auth-tabs">
-        <button class="auth-tab active" data-authtab="login">Sign in</button>
-        <button class="auth-tab" data-authtab="register">Register</button>
+        <button class="auth-tab active" data-authtab="login" data-i18n="auth.signIn">Sign in</button>
+        <button class="auth-tab" data-authtab="register" data-i18n="auth.register">Register</button>
       </div>
 
       <div id="authPanelLogin">
-        <div class="auth-field"><label>Email</label><input type="email" id="loginEmail" autocomplete="email" /></div>
-        <div class="auth-field"><label>Password</label><input type="password" id="loginPassword" autocomplete="current-password" /></div>
-        <button class="auth-submit" id="loginSubmit">Sign in →</button>
+        <div class="auth-field"><label data-i18n="auth.email">Email</label><input type="email" id="loginEmail" autocomplete="email" /></div>
+        <div class="auth-field"><label data-i18n="auth.password">Password</label><input type="password" id="loginPassword" autocomplete="current-password" /></div>
+        <button class="auth-submit" id="loginSubmit" data-i18n="auth.signInSubmit">Sign in →</button>
       </div>
 
       <div id="authPanelRegister" style="display:none">
-        <div class="auth-field"><label>Name <span style="font-weight:400;text-transform:none">(optional)</span></label><input type="text" id="registerName" autocomplete="name" /></div>
-        <div class="auth-field"><label>Email</label><input type="email" id="registerEmail" autocomplete="email" /></div>
-        <div class="auth-field"><label>Password</label><input type="password" id="registerPassword" autocomplete="new-password" /></div>
-        <button class="auth-submit" id="registerSubmit">Create account →</button>
+        <div class="auth-field"><label><span data-i18n="auth.name">Name</span> <span style="font-weight:400;text-transform:none" data-i18n="auth.name.optional">(optional)</span></label><input type="text" id="registerName" autocomplete="name" /></div>
+        <div class="auth-field"><label data-i18n="auth.email">Email</label><input type="email" id="registerEmail" autocomplete="email" /></div>
+        <div class="auth-field"><label data-i18n="auth.password">Password</label><input type="password" id="registerPassword" autocomplete="new-password" /></div>
+        <button class="auth-submit" id="registerSubmit" data-i18n="auth.createSubmit">Create account →</button>
       </div>
 
       <div class="auth-error" id="authError"></div>
-      <div class="auth-divider">or</div>
+      <div class="auth-divider" data-i18n="auth.or">or</div>
       <button class="auth-google" onclick="location.href='/auth/google'">
         <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
         Continue with Google

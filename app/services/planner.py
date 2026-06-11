@@ -1,5 +1,6 @@
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 import httpx
@@ -37,7 +38,7 @@ class _PlanItem(BaseModel):
 
 
 class _PlanOutput(BaseModel):
-    recommendations: list[_PlanItem] = Field(max_length=5, description="Top 3-5 curated picks, best first")
+    recommendations: list[_PlanItem] = Field(max_length=8, description="Top 5-8 curated picks, best first")
 
 
 class _SearchMoreArgs(BaseModel):
@@ -65,8 +66,8 @@ class _FinalizePlanItem(BaseModel):
 
 class _FinalizePlanArgs(BaseModel):
     recommendations: list[_FinalizePlanItem] = Field(
-        min_length=1, max_length=5,
-        description="Top 3–5 curated picks, best first",
+        min_length=1, max_length=8,
+        description="Top 5–8 curated picks, best first",
     )
 
 
@@ -174,6 +175,7 @@ async def _run_tool_agent(
     http_client: httpx.AsyncClient,
     lat: float,
     lng: float,
+    on_search: Callable[[list[str], float], Awaitable[None]] | None = None,
 ) -> list[_FinalizePlanItem] | None:
     llm_with_tools = llm.bind_tools([_SEARCH_TOOL, _FINALIZE_TOOL])
     messages: list = [SystemMessage(content=_SYSTEM_PROMPT), HumanMessage(content=user_message)]
@@ -205,6 +207,11 @@ async def _run_tool_agent(
                     )
                 else:
                     search_calls += 1
+                    if on_search is not None:
+                        try:
+                            await on_search(args.get("venue_types", []), float(args.get("radius_km", 1.5)))
+                        except Exception:
+                            logger.exception("on_search progress callback failed")
                     content = await _do_search(
                         venue_types=args.get("venue_types", []),
                         radius_km=float(args.get("radius_km", 1.5)),
@@ -274,7 +281,7 @@ def _build_user_message(
 
 
 def _fallback_recommendations(places: list[Place]) -> list[PlanRecommendation]:
-    top = sorted(places, key=lambda p: p.distance_m)[:5]
+    top = sorted(places, key=lambda p: p.distance_m)[:8]
     return [
         PlanRecommendation(
             place=PlaceInfo(
@@ -283,6 +290,7 @@ def _fallback_recommendations(places: list[Place]) -> list[PlanRecommendation]:
             ),
             reason=f"Nearby {p.amenity} at ~{round(p.distance_m)}m.",
             scenario="Quick option",
+            match_score=round(max(0.0, 1.0 - p.distance_m / 2500.0), 2),
         )
         for p in top
     ]
@@ -303,6 +311,7 @@ async def plan_places(
     http_client: httpx.AsyncClient | None = None,
     lat: float | None = None,
     lng: float | None = None,
+    on_search: Callable[[list[str], float], Awaitable[None]] | None = None,
 ) -> list[PlanRecommendation]:
     if not places:
         return []
@@ -322,14 +331,26 @@ async def plan_places(
         try:
             items = await _run_tool_agent(
                 user_message, all_places, known_keys, llm, http_client, lat, lng,
+                on_search=on_search,
             )
         except Exception:
             logger.exception("tool agent failed for query %r, falling back to simple chain", query)
 
     if items is None:
+        # The fallback chain has no tools bound — rebuild the message without the
+        # "call search_more_places / finalize_plan" instructions so we don't ask
+        # the model to call tools it can't see.
+        chain_message = (
+            _build_user_message(
+                query, group_size, budget, intent, time_context,
+                all_places, pre_scores, preferences, with_tools=False,
+            )
+            if can_search
+            else user_message
+        )
         chain = (_prompt | llm.with_structured_output(_PlanOutput)).with_retry(stop_after_attempt=2)
         try:
-            output: _PlanOutput = await chain.ainvoke({"user_message": user_message})
+            output: _PlanOutput = await chain.ainvoke({"user_message": chain_message})
             items = [
                 _FinalizePlanItem(
                     place_index=item.place_index,
@@ -358,6 +379,7 @@ async def plan_places(
             ),
             reason=item.reason,
             scenario=item.scenario,
+            match_score=round(float(item.match_score), 2),
         ))
 
     return result if result else _fallback_recommendations(places)

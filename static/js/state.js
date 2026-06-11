@@ -5,7 +5,7 @@ export const state = {
   leafletMarkers: [],
   cardMap: new Map(),
   currentMode: 'autopilot',
-  lastAutopilotPlace: null,
+  autopilotSeen: [],  // names already shown this session — excluded on "try again"
   recFallback: null,
   planCustomLocation: null,
   planMapClickActive: false,

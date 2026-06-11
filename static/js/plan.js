@@ -5,8 +5,6 @@ import { getLocation, consumeSSE } from './api.js';
 import { initMap, openMap, closeMap, placeUserPin, showMapTrigger, clearMarkers } from './map.js';
 import { renderPlanRecommendations } from './render.js';
 
-const TOP_N = 5;
-
 export function setPlanLocation(lat, lng, label) {
   initMap();
   state.planCustomLocation = { lat, lng };
@@ -77,21 +75,16 @@ export async function doPlan() {
         setStatus('AI planning your dinner…', 'loading');
       } else if (evType === 'places') {
         setStatus('Finding best options…', 'loading');
-      } else if (evType === 'ranked') {
-        const sorted = [...payload].sort((a, b) => b.match_score - a.match_score || a.distance_m - b.distance_m);
-        const recommendations = sorted.map(p => ({ place: p, reason: p.reason, scenario: null }));
-        renderPlanRecommendations({ recommendations });
-        const visible = Math.min(recommendations.length, TOP_N);
-        const total   = recommendations.length;
-        setStatus(
-          total === 0 ? 'No matching places nearby — try a wider radius or different query'
-            : total > TOP_N ? `Top ${visible} of ${total} options`
-            : `${total} option${total !== 1 ? 's' : ''} found`,
-          total > 0 ? 'done' : 'error',
-        );
+      } else if (evType === 'planning') {
+        setStatus(payload.message || 'Planning…', 'loading');
       } else if (evType === 'recommendations') {
         renderPlanRecommendations(payload);
-        setStatus(`${(payload.recommendations || []).length} curated options`, 'done');
+        const count = (payload.recommendations || []).length;
+        if (payload.notice) {
+          setStatus(`${count} alternative${count !== 1 ? 's' : ''} — no exact match for your criteria`, 'warn');
+        } else {
+          setStatus(`${count} curated options`, 'done');
+        }
       } else if (evType === 'no_match') {
         setStatus('No matching places found — try a different query or wider radius.', 'error');
       } else if (evType === 'error') {

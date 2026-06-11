@@ -26,7 +26,7 @@ export async function doAutopilot() {
       headers: authHeaders(),
       body: JSON.stringify({
         mode: 'autopilot', lat, lng, use_profile: useProfile(),
-        ...(state.lastAutopilotPlace ? { exclude_place_name: state.lastAutopilotPlace } : {}),
+        ...(state.autopilotSeen.length ? { exclude_place_names: state.autopilotSeen } : {}),
       }),
     });
     if (!res.ok) { setStatus(`Error ${res.status}`, 'error'); btn.disabled = false; return; }
@@ -38,7 +38,8 @@ export async function doAutopilot() {
         const places = payload.places || payload;
         setStatus(`Analysing ${places.length} candidates…`, 'loading');
       } else if (evType === 'recommendation') {
-        state.lastAutopilotPlace = payload.place?.name || null;
+        const name = payload.place?.name;
+        if (name && !state.autopilotSeen.includes(name)) state.autopilotSeen.push(name);
         renderRecommendation(payload, true, doAutopilot);
         setStatus("Here's your place", 'done');
       } else if (evType === 'no_match') {

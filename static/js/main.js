@@ -13,7 +13,7 @@ function switchMode(mode) {
   document.getElementById('cardsGrid').innerHTML = '';
   state.cardMap.clear();
   clearMarkers();
-  state.lastAutopilotPlace = null;
+  state.autopilotSeen      = [];
   state.recFallback        = null;
   showMapTrigger(0);
   setStatus('Ready');

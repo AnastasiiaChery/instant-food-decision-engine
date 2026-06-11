@@ -178,7 +178,7 @@ export function renderRecommendation(data, animate = true, onRetry = null) {
   card.querySelector('.rec-nav').addEventListener('click', () => recordNavigate(place, getNotes()));
   card.querySelector('.rec-another').addEventListener('click', () => {
     if (state.recFallback) {
-      state.lastAutopilotPlace = place.name;
+      if (place.name && !state.autopilotSeen.includes(place.name)) state.autopilotSeen.push(place.name);
       const fb = state.recFallback;
       state.recFallback = null;
       card.classList.add('swapping');
@@ -205,6 +205,13 @@ export function renderPlanRecommendations(data) {
   state.cardMap.clear();
   clearMarkers();
   initMap();
+
+  if (data.notice) {
+    const banner = document.createElement('div');
+    banner.className = 'plan-notice';
+    banner.textContent = data.notice;
+    cardsGrid.appendChild(banner);
+  }
 
   recs.forEach((rec, i) => {
     const { place, reason, scenario } = rec;
