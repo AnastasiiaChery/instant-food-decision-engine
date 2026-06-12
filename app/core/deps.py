@@ -4,11 +4,11 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import Depends, Request
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.core.security import decode_access_token
 from app.infrastructure.database import get_db
 from app.models.user import User
@@ -38,11 +38,42 @@ async def lifespan_http_client() -> AsyncIterator[httpx.AsyncClient]:
         yield client
 
 
-def get_ai_client() -> ChatGroq:
-    return ChatGroq(
-        api_key=settings.groq_api_key or "no-key",
-        model=settings.ai_model,
+def build_llm(model: str, cfg: Settings | None = None) -> BaseChatModel:
+    """Construct a chat model for the configured provider.
+
+    Provider-specific client classes are imported lazily so an unused provider's
+    package never has to be installed (e.g. langchain-google-genai is only needed
+    when AI_PROVIDER=gemini).
+    """
+    cfg = cfg or settings
+    provider = cfg.ai_provider.strip().lower()
+    api_key = cfg.effective_api_key or "no-key"
+
+    if provider == "groq":
+        from langchain_groq import ChatGroq
+        return ChatGroq(api_key=api_key, model=model)
+    if provider == "openai":
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(api_key=api_key, model=model, base_url=cfg.ai_base_url or None)
+    if provider == "gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        return ChatGoogleGenerativeAI(google_api_key=api_key, model=model)
+    raise ValueError(
+        f"Unknown AI_PROVIDER {cfg.ai_provider!r} (expected 'groq', 'openai' or 'gemini')"
     )
+
+
+def build_ai_clients(cfg: Settings | None = None) -> dict[str, BaseChatModel]:
+    """Build the per-tier clients used across the app.
+
+    "fast" → light steps (intent parsing, UI translation); "heavy" → reasoning-heavy
+    steps (ranking, planning). Built once at startup and reused for every request.
+    """
+    cfg = cfg or settings
+    return {
+        "fast": build_llm(cfg.ai_model_fast, cfg),
+        "heavy": build_llm(cfg.ai_model, cfg),
+    }
 
 
 async def get_optional_user(

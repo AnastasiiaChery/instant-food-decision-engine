@@ -10,7 +10,8 @@ router = APIRouter()
 async def get_i18n(lang: str, request: Request) -> JSONResponse:
     if not translator.is_valid_lang(lang.lower()):
         raise HTTPException(status_code=400, detail="Invalid language code")
-    ai_client = request.app.state.ai_client
+    # Translation is a light, cached step — use the fast/cheap tier.
+    ai_client = request.app.state.ai_clients["fast"]
     data = await translator.get_translations(lang, ai_client)
     # Revalidate on every load: the base dictionary gains keys between deploys,
     # and a long max-age left browsers showing a stale dict (missing new keys)

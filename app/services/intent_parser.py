@@ -1,8 +1,8 @@
 import logging
 from pathlib import Path
 
+from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_groq import ChatGroq
 
 from app.models.search import PlaceIntent
 
@@ -24,7 +24,7 @@ _DEFAULT_INTENT = PlaceIntent(
 )
 
 
-async def parse_intent(query: str, llm: ChatGroq) -> PlaceIntent:
+async def parse_intent(query: str, llm: BaseChatModel) -> PlaceIntent:
     chain = (_prompt | llm.with_structured_output(PlaceIntent)).with_retry(stop_after_attempt=2)
     try:
         result = await chain.ainvoke({"query": query})

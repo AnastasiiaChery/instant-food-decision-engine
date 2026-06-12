@@ -11,7 +11,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
-from app.core.deps import configure_langsmith, get_ai_client
+from app.core.deps import build_ai_clients, configure_langsmith
 from app.core.rate_limit import limiter
 from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.decide import router as decide_router
@@ -46,7 +46,10 @@ async def lifespan(app: FastAPI):
         logger.warning("Google OAuth is not configured — /auth/google login will not work.")
 
     configure_langsmith()
-    app.state.ai_client = get_ai_client()
+    clients = build_ai_clients()
+    app.state.ai_clients = clients
+    # Backward-compat alias: anything still reaching for a single client gets the heavy one.
+    app.state.ai_client = clients["heavy"]
     async with httpx.AsyncClient(timeout=15.0) as client:
         app.state.http_client = client
         yield

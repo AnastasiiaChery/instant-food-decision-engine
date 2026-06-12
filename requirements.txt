@@ -14,6 +14,8 @@ python-jose[cryptography]
 passlib[bcrypt]
 bcrypt==4.0.1
 langchain-groq>=0.3
+langchain-openai>=0.2
+# For AI_PROVIDER=gemini, also install: langchain-google-genai>=2.0
 langgraph>=0.2
 langchain-core>=0.3
 pytest

@@ -3,12 +3,11 @@ import logging
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
-import groq
 import httpx
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import StructuredTool
-from langchain_groq import ChatGroq
 from pydantic import BaseModel, Field
 
 from app.models.place import Place
@@ -173,7 +172,7 @@ async def _run_tool_agent(
     user_message: str,
     all_places: list[Place],
     known_keys: set[str],
-    llm: ChatGroq,
+    llm: BaseChatModel,
     http_client: httpx.AsyncClient,
     lat: float,
     lng: float,
@@ -190,8 +189,12 @@ async def _run_tool_agent(
             try:
                 response = await llm_with_tools.ainvoke(messages)
                 break
-            except groq.BadRequestError as exc:
-                if exc.code == "tool_use_failed" and attempt < 2:
+            except Exception as exc:
+                # Groq raises BadRequestError(code="tool_use_failed") when the model
+                # emits a malformed tool call — that's retriable. Detect it duck-typed
+                # (via the error code) so the planner stays provider-agnostic; any other
+                # error, or other providers' errors, propagate as before.
+                if getattr(exc, "code", None) == "tool_use_failed" and attempt < 2:
                     logger.warning(
                         "planner: tool_use_failed on step %d attempt %d, retrying", step, attempt
                     )
@@ -329,7 +332,7 @@ async def plan_places(
     query: str,
     intent: PlaceIntent,
     group_size: str | None,
-    llm: ChatGroq,
+    llm: BaseChatModel,
     budget: str | None = None,
     preferences: UserPreferences | None = None,
     time_context: str | None = None,
