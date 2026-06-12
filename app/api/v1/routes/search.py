@@ -18,9 +18,9 @@ async def _event_stream(
     request: SearchRequest,
     http_client: httpx.AsyncClient,
     preferences: UserPreferences | None,
-    ai_client,
+    ai_clients: dict,
 ) -> AsyncIterator[str]:
-    async for chunk in stream_search(request, http_client, ai_client, preferences):
+    async for chunk in stream_search(request, http_client, ai_clients, preferences):
         yield chunk
 
 
@@ -32,12 +32,12 @@ async def search(
     user: User | None = Depends(get_optional_user),
 ) -> StreamingResponse:
     http_client: httpx.AsyncClient = request.app.state.http_client
-    ai_client = request.app.state.ai_client
+    ai_clients: dict = request.app.state.ai_clients
     preferences: UserPreferences | None = None
     if payload.use_profile and user and user.preferences:
         preferences = UserPreferences(**user.preferences)
     return StreamingResponse(
-        _event_stream(payload, http_client, preferences, ai_client),
+        _event_stream(payload, http_client, preferences, ai_clients),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

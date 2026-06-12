@@ -2,8 +2,8 @@ import json
 import logging
 from pathlib import Path
 
+from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_groq import ChatGroq
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ async def rank_places(
     places: list[Place],
     query: str,
     intent: PlaceIntent,
-    llm: ChatGroq,
+    llm: BaseChatModel,
     preferences: UserPreferences | None = None,
     time_context: str | None = None,
     lang: str = "en",

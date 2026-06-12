@@ -13,7 +13,7 @@ import logging
 import re
 from pathlib import Path
 
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 
 from app.infrastructure import cache
 
@@ -79,21 +79,26 @@ _TRANSLATE_SYSTEM = (
 
 
 async def _translate_with_llm(
-    lang: str, base: dict[str, str], ai_client: ChatGroq
+    lang: str, base: dict[str, str], ai_client: BaseChatModel
 ) -> dict[str, str]:
     system = _TRANSLATE_SYSTEM.format(lang=lang)
     payload = json.dumps(base, ensure_ascii=False)
-    llm = ai_client.bind(response_format={"type": "json_object"})
-    resp = await llm.ainvoke(
-        [("system", system), ("human", payload)]
-    )
+    # OpenAI-compatible providers (Groq, OpenAI) honour response_format for strict JSON;
+    # other providers (e.g. Gemini) don't accept that kwarg, so fall back to a plain call
+    # and rely on the prompt + the key-preserving merge below to keep output well-formed.
+    try:
+        llm = ai_client.bind(response_format={"type": "json_object"})
+        resp = await llm.ainvoke([("system", system), ("human", payload)])
+    except Exception:
+        logger.warning("response_format unsupported for this provider, retrying without it")
+        resp = await ai_client.ainvoke([("system", system), ("human", payload)])
     content = resp.content if isinstance(resp.content, str) else str(resp.content)
     translated = json.loads(content)
     # Guard against the model dropping/adding keys: keep base value for any miss.
     return {k: translated.get(k, v) for k, v in base.items()}
 
 
-async def get_translations(lang: str, ai_client: ChatGroq) -> dict[str, str]:
+async def get_translations(lang: str, ai_client: BaseChatModel) -> dict[str, str]:
     """Return the UI dictionary for `lang`, translating + caching on first use.
 
     Falls back to the English base on any failure so the UI never breaks.

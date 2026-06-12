@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import httpx
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 
 from app.core.config import settings
 
@@ -335,15 +335,20 @@ async def _prepare_places(
 async def stream_search(
     request: SearchRequest,
     http_client: httpx.AsyncClient,
-    ai_client: ChatGroq,
+    ai_clients: dict[str, BaseChatModel],
     preferences: UserPreferences | None = None,
 ) -> AsyncIterator[str]:
+    # Route each step to the right tier: intent parsing is a light step (fast/cheap
+    # model), ranking and planning need reasoning (heavy model).
+    fast_llm = ai_clients["fast"]
+    heavy_llm = ai_clients["heavy"]
+
     radius_m = min(request.radius_m or settings.search_radius_m, settings.max_radius_m)
     now_utc = _parse_when_utc(request.when, request.lng)
     time_context = _local_time_str(request.lat, request.lng)
 
     # Parse intent first — determines which venue types to actually fetch (never raises)
-    intent: PlaceIntent = await intent_parser.parse_intent(request.query, ai_client)
+    intent: PlaceIntent = await intent_parser.parse_intent(request.query, fast_llm)
     yield _intent_event(intent, request.query)
 
     venue_types = [vt for vt in intent.venue_types if vt in VALID_AMENITIES] or [
@@ -390,7 +395,7 @@ async def stream_search(
             try:
                 return await planner.plan_places(
                     plan_places, request.query, intent,
-                    request.group_size, ai_client,
+                    request.group_size, heavy_llm,
                     budget=request.budget,
                     preferences=preferences, time_context=time_context, pre_scores=pre_scores,
                     http_client=http_client, lat=request.lat, lng=request.lng,
@@ -448,7 +453,7 @@ async def stream_search(
 
     try:
         ranked = await ranker.rank_places(
-            places, request.query, intent, ai_client,
+            places, request.query, intent, heavy_llm,
             preferences=preferences, time_context=time_context, lang=request.lang,
         )
     except Exception:
@@ -470,7 +475,7 @@ async def stream_search(
                 yield _place_event(places)
                 try:
                     ranked = await ranker.rank_places(
-                        places, request.query, intent, ai_client,
+                        places, request.query, intent, heavy_llm,
                         preferences=preferences, time_context=time_context, lang=request.lang,
                     )
                 except Exception:
