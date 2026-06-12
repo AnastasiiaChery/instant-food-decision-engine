@@ -40,15 +40,20 @@ header {
 }
 
 .brand {
-  font-family: 'Fraunces', serif;
-  font-style: italic;
-  font-weight: 400;
-  font-size: 19px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-style: normal;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -0.02em;
   color: var(--text);
   text-decoration: none;
   flex-shrink: 0;
 }
 .brand em { color: var(--accent); font-style: normal; }
+.brand-logo { width: 28px; height: 28px; display: block; flex-shrink: 0; }
 
 .header-tabs {
   display: none;
@@ -657,8 +662,8 @@ header {
 }
 .auth-modal-close:hover { color: var(--text); }
 .auth-modal-title {
-  font-family: 'Fraunces', serif; font-style: italic;
-  font-size: 20px; font-weight: 400; margin-bottom: 20px;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-style: normal;
+  font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 20px;
 }
 .auth-tabs {
   display: flex; gap: 2px; margin-bottom: 20px;
@@ -706,6 +711,53 @@ header {
   font-size: 12px; color: #ef4444; margin-top: 8px;
   min-height: 16px; text-align: center;
 }
+
+/* Consent checkbox on the register panel */
+.auth-consent {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 4px 0 12px; font-size: 12px; color: var(--text-2); line-height: 1.45;
+  cursor: pointer;
+}
+.auth-consent input { margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; }
+.auth-consent a { color: var(--accent); }
+.auth-legal-note {
+  font-size: 11px; color: var(--text-3); text-align: center;
+  margin: 12px 0 0; line-height: 1.45;
+}
+.auth-legal-note a { color: var(--text-2); }
+.landing-legal { font-size: 12px; color: var(--text-3); margin-top: 10px; }
+.landing-legal a { color: var(--text-2); }
+
+/* ── Geolocation consent modal ── */
+#geoConsentModal {
+  display: none; position: fixed; inset: 0; z-index: 600;
+  background: rgba(15,15,12,0.5);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  align-items: center; justify-content: center; padding: 16px;
+}
+#geoConsentModal.open { display: flex; }
+.geo-consent-box {
+  background: var(--surface); border-radius: 16px;
+  width: 100%; max-width: 360px; padding: 28px 24px 22px;
+  box-shadow: var(--shadow-md); text-align: center;
+}
+.geo-consent-icon { font-size: 34px; line-height: 1; margin-bottom: 10px; }
+.geo-consent-title {
+  font-family: 'Fraunces', serif; font-weight: 600;
+  font-size: 20px; margin: 0 0 8px;
+}
+.geo-consent-body { font-size: 14px; color: var(--text-2); margin: 0 0 10px; line-height: 1.5; }
+.geo-consent-legal { font-size: 12px; color: var(--text-3); margin: 0 0 18px; }
+.geo-consent-legal a { color: var(--accent); }
+.geo-consent-actions { display: flex; gap: 10px; }
+.geo-consent-cancel, .geo-consent-ok {
+  flex: 1; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif; cursor: pointer; transition: opacity 0.15s, border-color 0.15s;
+}
+.geo-consent-cancel { background: var(--bg); border: 1.5px solid var(--border); color: var(--text-2); }
+.geo-consent-cancel:hover { border-color: #c8c5bd; color: var(--text); }
+.geo-consent-ok { background: var(--accent); border: none; color: #fff; }
+.geo-consent-ok:hover { opacity: 0.88; }
 
 /* ── User Drawer ── */
 #userDrawer {
@@ -916,7 +968,8 @@ body.is-guest #landing {
   transition: box-shadow 0.2s, border-color 0.2s;
 }
 .landing-step:hover { border-color: #d0cdc5; box-shadow: var(--shadow-md); }
-.landing-step-icon { font-size: 22px; margin-bottom: 10px; }
+.landing-step-icon { color: var(--accent); margin-bottom: 10px; line-height: 0; }
+.landing-step-icon svg { width: 26px; height: 26px; }
 .landing-step-title {
   font-family: 'Fraunces', serif; font-weight: 600;
   font-size: 15px; margin-bottom: 6px;

@@ -128,8 +128,10 @@ document.getElementById('registerSubmit').addEventListener('click', async () => 
   const email    = document.getElementById('registerEmail').value.trim();
   const password = document.getElementById('registerPassword').value;
   const errEl    = document.getElementById('authError');
+  const consent  = document.getElementById('registerConsent');
   if (!email || !password) { errEl.textContent = t('auth.emailPasswordRequired'); return; }
   if (password.length < 8)  { errEl.textContent = t('auth.passwordMin'); return; }
+  if (consent && !consent.checked) { errEl.textContent = t('auth.consentRequired'); return; }
   const btn = document.getElementById('registerSubmit');
   btn.disabled = true;
   try {

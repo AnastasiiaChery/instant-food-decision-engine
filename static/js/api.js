@@ -1,7 +1,35 @@
 import { getToken } from './utils.js';
 import { t } from './i18n.js';
 
-export function getLocation() {
+const GEO_CONSENT_KEY = 'instantfood_geo_consent';
+
+// Ask for informed consent once, before the browser's own permission prompt, so the
+// user knows why we need their location and where it goes (GDPR transparency).
+// Resolves when the user accepts (now or previously); rejects if they decline.
+function ensureGeoConsent() {
+  return new Promise((resolve, reject) => {
+    if (localStorage.getItem(GEO_CONSENT_KEY) === '1') { resolve(); return; }
+    const modal  = document.getElementById('geoConsentModal');
+    const okBtn   = document.getElementById('geoConsentOk');
+    const cancel  = document.getElementById('geoConsentCancel');
+    if (!modal || !okBtn || !cancel) { resolve(); return; } // fail open if markup missing
+
+    const close = () => {
+      modal.classList.remove('open');
+      okBtn.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+    };
+    const onOk = () => { localStorage.setItem(GEO_CONSENT_KEY, '1'); close(); resolve(); };
+    const onCancel = () => { close(); reject(new Error(t('geo.consentDeclined'))); };
+
+    okBtn.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    modal.classList.add('open');
+  });
+}
+
+export async function getLocation() {
+  await ensureGeoConsent();
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) { reject(new Error(t('geo.notSupported'))); return; }
     navigator.geolocation.getCurrentPosition(

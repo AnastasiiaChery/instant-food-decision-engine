@@ -1,0 +1,130 @@
+<!doctype html>
+<!--
+  Privacy Policy — GDPR Article 13 disclosure for NomPilot.
+  Good-faith draft tailored to the app's actual data flows; NOT legal advice. The
+  controller is intentionally identified only by contact email (personal project).
+  Review the special-category diet data and the transfer to Groq outside the EEA
+  if the project's scale or purpose changes.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy · NomPilot</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet" />
+  <style>
+    :root { --bg:#f7f6f2; --surface:#fff; --accent:#2455d4; --text:#1a1918; --text-2:#6b6a64; --border:#e6e4dd; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; line-height:1.6; }
+    .legal-wrap { max-width:720px; margin:0 auto; padding:32px 20px 80px; }
+    .legal-back { display:inline-block; margin-bottom:24px; color:var(--accent); text-decoration:none; font-size:14px; font-weight:500; }
+    .legal-back:hover { text-decoration:underline; }
+    h1 { font-family:'Fraunces',serif; font-weight:600; font-size:30px; margin:0 0 4px; }
+    h2 { font-family:'Fraunces',serif; font-weight:600; font-size:20px; margin:32px 0 8px; }
+    .legal-updated { color:var(--text-2); font-size:13px; margin-bottom:24px; }
+    p, li { font-size:15px; color:var(--text); }
+    a { color:var(--accent); }
+    table { width:100%; border-collapse:collapse; margin:12px 0; font-size:14px; }
+    th, td { text-align:left; padding:8px 10px; border:1px solid var(--border); vertical-align:top; }
+    th { background:var(--surface); font-weight:600; }
+    .legal-note { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; font-size:14px; color:var(--text-2); }
+    footer { margin-top:48px; font-size:13px; color:var(--text-2); }
+    footer a { margin-right:14px; }
+  </style>
+</head>
+<body>
+  <div class="legal-wrap">
+    <a class="legal-back" href="/">← Back to NomPilot</a>
+    <h1>Privacy Policy</h1>
+    <p class="legal-updated">Last updated: 12 June 2026</p>
+
+    <p>This policy explains what personal data NomPilot ("we", "the service") collects,
+    why we collect it, who we share it with, and the rights you have under the EU General
+    Data Protection Regulation (GDPR) and similar laws.</p>
+
+    <h2>1. Who is responsible (data controller)</h2>
+    <p>NomPilot is an independent, non-commercial project operated by an individual
+    ("we"). For any privacy question, to exercise your rights, or to request the
+    controller's full identity, contact us at
+    <a href="mailto:nompilot.service@gmail.com">nompilot.service@gmail.com</a>.</p>
+
+    <h2>2. What we collect, why, and the legal basis</h2>
+    <table>
+      <thead>
+        <tr><th>Data</th><th>Purpose</th><th>Legal basis (GDPR Art. 6)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Your location</strong> (GPS coordinates, or an address/map point you enter)</td>
+          <td>To find food and drink venues near you — the core function of the service.</td>
+          <td>Your consent (Art. 6(1)(a)), asked before location is first used.</td>
+        </tr>
+        <tr>
+          <td><strong>Account data</strong> — email address, display name, and (for email sign-up) a hashed password; or your Google account ID, email and name if you sign in with Google</td>
+          <td>To create and secure your account and keep you signed in.</td>
+          <td>Performance of a contract (Art. 6(1)(b)).</td>
+        </tr>
+        <tr>
+          <td><strong>Search &amp; taste preferences</strong> — your query text, group/occasion, and the diet, cuisine and drink preferences you choose to set</td>
+          <td>To personalise recommendations to your taste.</td>
+          <td>Your consent (Art. 6(1)(a)). Some diet choices (e.g. halal, kosher) may reveal religious beliefs — a special category under Art. 9; we process them only with your explicit consent and only to filter recommendations.</td>
+        </tr>
+        <tr>
+          <td><strong>History</strong> — places you navigate to or favourite</td>
+          <td>To show your recent activity and improve suggestions.</td>
+          <td>Your consent / legitimate interest (Art. 6(1)(f)).</td>
+        </tr>
+        <tr>
+          <td><strong>Feedback</strong> you submit (and your email, if signed in)</td>
+          <td>To understand problems and improve the service during beta.</td>
+          <td>Legitimate interest (Art. 6(1)(f)).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>3. Who we share data with (recipients)</h2>
+    <p>We do not sell your data. To provide the service we send the minimum necessary data to:</p>
+    <ul>
+      <li><strong>OpenStreetMap / Overpass API</strong> — we send your <em>coordinates</em> to fetch nearby venues. (openstreetmap.org)</li>
+      <li><strong>Groq</strong> — we send your <em>query and taste preferences</em> (not your account email) to an AI model that ranks places and translates the interface. Groq may process this outside the EEA; see Section 4. (groq.com)</li>
+      <li><strong>Google</strong> — only if you choose "Continue with Google", for authentication. (Google's own privacy policy applies.)</li>
+      <li><strong>Telegram</strong> — if you submit feedback, your message (and email, if signed in) is delivered to our team via Telegram.</li>
+    </ul>
+
+    <h2>4. International transfers</h2>
+    <p>Some processors (e.g. Groq, Google) may process data in the United States or other
+    countries outside the European Economic Area. Where this happens we rely on the
+    safeguards offered by those providers, such as the EU Standard Contractual Clauses
+    incorporated in their data-processing terms. You can ask us for more detail at any time.</p>
+
+    <h2>5. How long we keep data</h2>
+    <ul>
+      <li><strong>Location used for a search</strong> is processed transiently to return results and is not stored as raw coordinates tied to your account beyond what is needed to show your history.</li>
+      <li><strong>Account, preferences and history</strong> are kept while your account exists. Delete your account and we erase them within [30] days, except where law requires retention.</li>
+      <li><strong>Cached translations and venue data</strong> are technical caches with a short lifetime and contain no account identifiers.</li>
+    </ul>
+
+    <h2>6. Your rights</h2>
+    <p>Under the GDPR you can: access your data; correct it; erase it ("right to be forgotten");
+    restrict or object to processing; receive your data in a portable format; and withdraw
+    consent at any time (which does not affect processing already carried out). You also have
+    the right to lodge a complaint with your local data protection authority. To exercise any
+    right, email <a href="mailto:nompilot.service@gmail.com">nompilot.service@gmail.com</a>.</p>
+
+    <h2>7. Children</h2>
+    <p>The service is not directed at children under 16. We do not knowingly collect their data.</p>
+
+    <h2>8. Changes</h2>
+    <p>We may update this policy; we will revise the "last updated" date and, for material
+    changes, notify you in the app.</p>
+
+    <footer>
+      <a href="/terms">Terms of Service</a>
+      <a href="/">Home</a>
+    </footer>
+  </div>
+</body>
+</html>

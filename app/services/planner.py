@@ -178,6 +178,7 @@ async def _run_tool_agent(
     lat: float,
     lng: float,
     on_search: Callable[[list[str], float], Awaitable[None]] | None = None,
+    max_radius_km: float | None = None,
 ) -> list[_FinalizePlanItem] | None:
     llm_with_tools = llm.bind_tools([_SEARCH_TOOL, _FINALIZE_TOOL])
     messages: list = [SystemMessage(content=_SYSTEM_PROMPT), HumanMessage(content=user_message)]
@@ -221,14 +222,18 @@ async def _run_tool_agent(
                     )
                 else:
                     search_calls += 1
+                    # Honour the user's radius as a hard ceiling — the agent must never
+                    # widen the search beyond what the user explicitly set.
+                    req_radius = float(args.get("radius_km", 1.5))
+                    radius_km = min(req_radius, max_radius_km) if max_radius_km else req_radius
                     if on_search is not None:
                         try:
-                            await on_search(args.get("venue_types", []), float(args.get("radius_km", 1.5)))
+                            await on_search(args.get("venue_types", []), radius_km)
                         except Exception:
                             logger.exception("on_search progress callback failed")
                     content = await _do_search(
                         venue_types=args.get("venue_types", []),
-                        radius_km=float(args.get("radius_km", 1.5)),
+                        radius_km=radius_km,
                         lat=lat,
                         lng=lng,
                         http_client=http_client,
@@ -257,6 +262,7 @@ def _build_user_message(
     preferences: UserPreferences | None,
     with_tools: bool = False,
     lang: str = "en",
+    max_radius_km: float | None = None,
 ) -> str:
     places_payload = [
         {
@@ -291,6 +297,12 @@ def _build_user_message(
             "call search_more_places to expand the search before finalizing. "
             "When ready, call finalize_plan with your recommendations."
         )
+        if max_radius_km is not None:
+            msg += (
+                f"\nThe user set a search radius of {max_radius_km:g}km — never call "
+                f"search_more_places with a radius_km above {max_radius_km:g}. If nothing "
+                "suitable exists within that radius, finalize with the best of what you have."
+            )
     return msg
 
 
@@ -327,6 +339,7 @@ async def plan_places(
     lng: float | None = None,
     on_search: Callable[[list[str], float], Awaitable[None]] | None = None,
     lang: str = "en",
+    max_radius_km: float | None = None,
 ) -> list[PlanRecommendation]:
     if not places:
         return []
@@ -338,6 +351,7 @@ async def plan_places(
     user_message = _build_user_message(
         query, group_size, budget, intent, time_context,
         all_places, pre_scores, preferences, with_tools=can_search, lang=lang,
+        max_radius_km=max_radius_km,
     )
 
     items: list[_FinalizePlanItem] | None = None
@@ -346,7 +360,7 @@ async def plan_places(
         try:
             items = await _run_tool_agent(
                 user_message, all_places, known_keys, llm, http_client, lat, lng,
-                on_search=on_search,
+                on_search=on_search, max_radius_km=max_radius_km,
             )
         except Exception:
             logger.exception("tool agent failed for query %r, falling back to simple chain", query)

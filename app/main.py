@@ -22,7 +22,10 @@ from app.api.v1.routes.profile import router as profile_router
 from app.api.v1.routes.search import router as search_router
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-INDEX_FILE = PROJECT_ROOT / "static" / "index.html"
+STATIC_DIR = PROJECT_ROOT / "static"
+INDEX_FILE = STATIC_DIR / "index.html"
+PRIVACY_FILE = STATIC_DIR / "privacy.html"
+TERMS_FILE = STATIC_DIR / "terms.html"
 
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
@@ -49,7 +52,7 @@ async def lifespan(app: FastAPI):
         yield
 
 
-app = FastAPI(title="Instant Food Decision Engine", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="NomPilot — AI Dining Autopilot", version="0.2.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=PROJECT_ROOT / "static"), name="static")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -65,6 +68,16 @@ app.include_router(decide_router)
 @app.get("/")
 def root() -> FileResponse:
     return FileResponse(INDEX_FILE)
+
+
+@app.get("/privacy")
+def privacy() -> FileResponse:
+    return FileResponse(PRIVACY_FILE)
+
+
+@app.get("/terms")
+def terms() -> FileResponse:
+    return FileResponse(TERMS_FILE)
 
 
 @app.get("/favicon.ico")

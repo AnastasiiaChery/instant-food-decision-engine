@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="64" height="64" role="img" aria-label="NomPilot">
+  <defs>
+    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="1024">
+      <stop offset="0" stop-color="#3a6af0"/><stop offset="1" stop-color="#2455d4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="230" fill="url(#g)"/>
+  <path d="M512 880 C 420 690 330 612 330 498 A 182 182 0 0 1 694 498 C 694 612 604 690 512 880 Z" fill="#fff"/>
+  <circle cx="512" cy="236" r="76" fill="#fff"/>
+  <circle cx="446" cy="266" r="58" fill="#fff"/>
+  <circle cx="578" cy="266" r="58" fill="#fff"/>
+  <rect x="404" y="286" width="216" height="64" rx="26" fill="#fff"/>
+  <path d="M412 352 H612" stroke="url(#g)" stroke-width="12" stroke-linecap="round"/>
+  <path d="M432 484 Q460 456 488 484" fill="none" stroke="url(#g)" stroke-width="22" stroke-linecap="round"/>
+  <path d="M536 484 Q564 456 592 484" fill="none" stroke="url(#g)" stroke-width="22" stroke-linecap="round"/>
+  <path d="M456 534 Q512 600 568 534" fill="none" stroke="url(#g)" stroke-width="30" stroke-linecap="round"/>
+</svg>

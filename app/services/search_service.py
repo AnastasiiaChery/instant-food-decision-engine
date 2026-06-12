@@ -395,6 +395,7 @@ async def stream_search(
                     preferences=preferences, time_context=time_context, pre_scores=pre_scores,
                     http_client=http_client, lat=request.lat, lng=request.lng,
                     on_search=_on_search, lang=request.lang,
+                    max_radius_km=radius_m / 1000,
                 )
             finally:
                 await progress_q.put(None)

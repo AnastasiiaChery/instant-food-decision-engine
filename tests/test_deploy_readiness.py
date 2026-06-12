@@ -12,6 +12,13 @@ class DeployReadinessTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json().get("status"), "ready")
 
+    def test_legal_pages_served(self) -> None:
+        with TestClient(app) as client:
+            for path in ("/privacy", "/terms"):
+                response = client.get(path)
+                self.assertEqual(response.status_code, 200, path)
+                self.assertIn("text/html", response.headers["content-type"])
+
 
 if __name__ == "__main__":
     unittest.main()

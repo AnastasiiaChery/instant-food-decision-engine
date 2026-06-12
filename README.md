@@ -1,4 +1,6 @@
-# Instant Food Decision Engine
+# NomPilot — AI Dining Autopilot
+
+> Formerly *Instant Food Decision Engine* — the codename lives on in the package/DB names.
 
 AI-powered service that finds and recommends food and drink venues nearby. Enter a free-text query ("cozy Italian", "cocktails", "romantic dinner at 20:00") — the service fetches nearby places from OpenStreetMap, parses your intent with an LLM, and streams back AI-ranked results in real time.
 

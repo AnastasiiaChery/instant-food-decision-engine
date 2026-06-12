@@ -6,7 +6,7 @@
   "nav.signIn": "Sign in",
 
   "landing.title": "Stop deciding.<br>Start <em>eating</em>.",
-  "landing.desc": "AI finds the best restaurant near you — in seconds, matched to your mood, group size, and personal taste.",
+  "landing.desc": "Your AI dining autopilot — it picks the single best place near you in seconds, matched to your mood, group, and taste. No endless feeds, no overthinking.",
   "landing.createAccount": "Create free account",
   "landing.signIn": "Sign in",
   "landing.step1.title": "Autopilot",
@@ -18,7 +18,7 @@
   "landing.note": "Free · No credit card · Works anywhere with a GPS signal",
 
   "autopilot.label": "Tired of deciding? Let AI pick for you.",
-  "autopilot.button": "Find me food →",
+  "autopilot.button": "Decide for me →",
 
   "plan.when": "When",
   "plan.when.now": "Right now",
@@ -190,5 +190,17 @@
   "geo.notSupported": "Geolocation not supported.",
   "geo.denied": "Location permission denied.",
   "geo.unavailable": "Location unavailable.",
-  "geo.timeout": "Location timed out. Please use Plan mode and enter your address manually."
+  "geo.timeout": "Location timed out. Please use Plan mode and enter your address manually.",
+  "geo.consentDeclined": "Location access is needed to find places near you. You can also use Plan mode and enter an address.",
+  "geo.consent.title": "Use your location?",
+  "geo.consent.body": "To find places near you, we use your device location. Your coordinates are sent to OpenStreetMap to look up nearby venues — they are not shared with advertisers.",
+  "geo.consent.legal": "See our <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Privacy Policy</a> for details.",
+  "geo.consent.continue": "Continue",
+  "geo.consent.cancel": "Not now",
+
+  "auth.consent": "I agree to the <a href=\"/terms\" target=\"_blank\" rel=\"noopener\">Terms</a> and <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Privacy Policy</a>.",
+  "auth.consentRequired": "Please accept the Terms and Privacy Policy to continue.",
+  "auth.legalNote": "By continuing you agree to our <a href=\"/terms\" target=\"_blank\" rel=\"noopener\">Terms</a> and <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Privacy Policy</a>.",
+
+  "landing.legal": "By using NomPilot you agree to our <a href=\"/terms\">Terms</a> and <a href=\"/privacy\">Privacy Policy</a>."
 }
