@@ -139,7 +139,10 @@ document.getElementById('registerSubmit').addEventListener('click', async () => 
     });
     const data = await res.json();
     if (!res.ok) { errEl.textContent = data.detail || t('auth.registrationFailed'); return; }
-    await handleAuthSuccess(data.token);
+    // Fresh account → send straight into the taste questionnaire.
+    setToken(data.token);
+    closeAuthModal();
+    location.replace('/profile/setup');
   } catch { errEl.textContent = t('auth.networkError'); }
   finally { btn.disabled = false; }
 });

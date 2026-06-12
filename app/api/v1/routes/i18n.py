@@ -12,5 +12,7 @@ async def get_i18n(lang: str, request: Request) -> JSONResponse:
         raise HTTPException(status_code=400, detail="Invalid language code")
     ai_client = request.app.state.ai_client
     data = await translator.get_translations(lang, ai_client)
-    # Translations are immutable per language → let the browser cache them.
-    return JSONResponse(content=data, headers={"Cache-Control": "public, max-age=86400"})
+    # Revalidate on every load: the base dictionary gains keys between deploys,
+    # and a long max-age left browsers showing a stale dict (missing new keys)
+    # for up to a day. The payload is small; server-side it's cached in memory.
+    return JSONResponse(content=data, headers={"Cache-Control": "no-cache"})

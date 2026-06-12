@@ -48,3 +48,30 @@ async def set_cached(lat: float, lng: float, radius_m: int, data: list[dict]) ->
         await client.setex(_cache_key(lat, lng, radius_m), CACHE_TTL_SECONDS, json.dumps(data))
     except Exception:
         pass
+
+
+async def get_json(key: str) -> Any | None:
+    """Generic JSON read. Returns None if Redis is absent or the key is missing."""
+    client = await _get_client()
+    if client is None:
+        return None
+    try:
+        raw = await client.get(key)
+        return json.loads(raw) if raw else None
+    except Exception:
+        return None
+
+
+async def set_json(key: str, data: Any, ttl_seconds: int | None = None) -> None:
+    """Generic JSON write. No-op when Redis is not configured."""
+    client = await _get_client()
+    if client is None:
+        return
+    try:
+        payload = json.dumps(data, ensure_ascii=False)
+        if ttl_seconds:
+            await client.setex(key, ttl_seconds, payload)
+        else:
+            await client.set(key, payload)
+    except Exception:
+        pass

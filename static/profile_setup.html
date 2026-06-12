@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Instant Food — Your taste</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/main.css" />
+</head>
+<body class="onb-body">
+  <div class="onb-card">
+    <a class="brand" href="/">instant<em>food</em></a>
+    <h1 class="onb-title" data-i18n="onb.title">Let's learn your taste</h1>
+    <p class="onb-subtitle" data-i18n="onb.subtitle">A few quick taps so the AI picks places you'll actually love. You can change these anytime.</p>
+
+    <div class="drawer-section">
+      <div class="drawer-section-label" data-i18n="onb.diet">Any dietary needs?</div>
+      <div class="drawer-chips" data-pref="diet" data-multi="1">
+        <div class="drawer-chip" data-val="vegetarian" data-i18n="drawer.diet.vegetarian">Vegetarian</div>
+        <div class="drawer-chip" data-val="vegan" data-i18n="drawer.diet.vegan">Vegan</div>
+        <div class="drawer-chip" data-val="pescatarian" data-i18n="drawer.diet.pescatarian">Pescatarian</div>
+        <div class="drawer-chip" data-val="halal" data-i18n="drawer.diet.halal">Halal</div>
+        <div class="drawer-chip" data-val="kosher" data-i18n="drawer.diet.kosher">Kosher</div>
+        <div class="drawer-chip" data-val="gluten_free" data-i18n="drawer.diet.glutenFree">Gluten-free</div>
+        <div class="drawer-chip" data-val="lactose_free" data-i18n="drawer.diet.lactoseFree">Lactose-free</div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-label" data-i18n="taste.spice">Spice level</div>
+      <div class="drawer-chips" data-pref="spice">
+        <div class="drawer-chip" data-val="none" data-i18n="taste.spice.none">Not spicy</div>
+        <div class="drawer-chip" data-val="mild" data-i18n="taste.spice.mild">A little heat</div>
+        <div class="drawer-chip" data-val="love" data-i18n="taste.spice.love">Love it spicy</div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-label" data-i18n="taste.style">Dining style</div>
+      <div class="drawer-chips" data-pref="adventure">
+        <div class="drawer-chip" data-val="adventurous" data-i18n="taste.style.adventurous">Adventurous &amp; local</div>
+        <div class="drawer-chip" data-val="balanced" data-i18n="taste.style.balanced">A bit of both</div>
+        <div class="drawer-chip" data-val="familiar" data-i18n="taste.style.familiar">Familiar &amp; comfy</div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-label" data-i18n="taste.cuisines">Favorite cuisines</div>
+      <div class="drawer-chips" data-pref="cuisines_liked" data-multi="1">
+        <div class="drawer-chip" data-val="italian" data-i18n="taste.cuisine.italian">Italian</div>
+        <div class="drawer-chip" data-val="japanese" data-i18n="taste.cuisine.japanese">Japanese</div>
+        <div class="drawer-chip" data-val="thai" data-i18n="taste.cuisine.thai">Thai</div>
+        <div class="drawer-chip" data-val="chinese" data-i18n="taste.cuisine.chinese">Chinese</div>
+        <div class="drawer-chip" data-val="indian" data-i18n="taste.cuisine.indian">Indian</div>
+        <div class="drawer-chip" data-val="mexican" data-i18n="taste.cuisine.mexican">Mexican</div>
+        <div class="drawer-chip" data-val="vietnamese" data-i18n="taste.cuisine.vietnamese">Vietnamese</div>
+        <div class="drawer-chip" data-val="korean" data-i18n="taste.cuisine.korean">Korean</div>
+        <div class="drawer-chip" data-val="georgian" data-i18n="taste.cuisine.georgian">Georgian</div>
+        <div class="drawer-chip" data-val="mediterranean" data-i18n="taste.cuisine.mediterranean">Mediterranean</div>
+        <div class="drawer-chip" data-val="middle_eastern" data-i18n="taste.cuisine.middle_eastern">Middle Eastern</div>
+        <div class="drawer-chip" data-val="french" data-i18n="taste.cuisine.french">French</div>
+        <div class="drawer-chip" data-val="american" data-i18n="taste.cuisine.american">American</div>
+        <div class="drawer-chip" data-val="spanish" data-i18n="taste.cuisine.spanish">Spanish</div>
+        <div class="drawer-chip" data-val="greek" data-i18n="taste.cuisine.greek">Greek</div>
+        <div class="drawer-chip" data-val="turkish" data-i18n="taste.cuisine.turkish">Turkish</div>
+        <div class="drawer-chip" data-val="seafood" data-i18n="taste.cuisine.seafood">Seafood</div>
+        <div class="drawer-chip" data-val="bbq" data-i18n="taste.cuisine.bbq">BBQ &amp; grill</div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-label" data-i18n="taste.avoid">Hard no's</div>
+      <div class="drawer-chips" data-pref="avoid" data-multi="1">
+        <div class="drawer-chip" data-val="no_fast_food" data-i18n="taste.avoid.no_fast_food">Fast-food chains</div>
+        <div class="drawer-chip" data-val="no_seafood" data-i18n="taste.avoid.no_seafood">Seafood</div>
+        <div class="drawer-chip" data-val="no_raw" data-i18n="taste.avoid.no_raw">Raw fish / sushi</div>
+        <div class="drawer-chip" data-val="no_pork" data-i18n="taste.avoid.no_pork">Pork</div>
+        <div class="drawer-chip" data-val="no_very_spicy" data-i18n="taste.avoid.no_very_spicy">Very spicy food</div>
+        <div class="drawer-chip" data-val="no_offal" data-i18n="taste.avoid.no_offal">Offal / organ meat</div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-label" data-i18n="taste.drinks">Drinks</div>
+      <div class="drawer-chips" data-pref="drinks" data-multi="1">
+        <div class="drawer-chip" data-val="wine" data-i18n="taste.drinks.wine">Wine</div>
+        <div class="drawer-chip" data-val="craft_beer" data-i18n="taste.drinks.craft_beer">Craft beer</div>
+        <div class="drawer-chip" data-val="cocktails" data-i18n="taste.drinks.cocktails">Cocktails</div>
+        <div class="drawer-chip" data-val="specialty_coffee" data-i18n="taste.drinks.specialty_coffee">Specialty coffee</div>
+        <div class="drawer-chip" data-val="no_alcohol" data-i18n="taste.drinks.no_alcohol">No alcohol</div>
+      </div>
+    </div>
+
+    <div class="onb-actions">
+      <button class="onb-skip" id="onbSkip" data-i18n="onb.skip">Skip for now</button>
+      <button class="onb-save" id="onbSave" data-i18n="onb.save">Save &amp; start →</button>
+    </div>
+  </div>
+
+  <script type="module" src="/static/js/onboarding.js"></script>
+</body>
+</html>

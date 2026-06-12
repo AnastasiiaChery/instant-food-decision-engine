@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import re
 from datetime import UTC, datetime
 from math import asin, cos, radians, sin, sqrt
@@ -8,9 +10,13 @@ from fastapi import HTTPException
 
 from app.models.place import Place
 
+logger = logging.getLogger(__name__)
+
 OVERPASS_URLS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
+    "https://lz4.overpass-api.de/api/interpreter",
+    "https://z.overpass-api.de/api/interpreter",
 ]
 VALID_AMENITIES = {
     "restaurant", "fast_food", "cafe", "bar", "pub", "biergarten", "food_court",
@@ -144,7 +150,7 @@ def _deduplicate(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _build_overpass_query(lat: float, lon: float, venue_types: list[str], radius_m: int) -> str:
     amenity_regex = "|".join(venue_types)
     return f"""
-[out:json][timeout:15];
+[out:json][timeout:25][maxsize:33554432];
 (
   node["amenity"~"{amenity_regex}"](around:{radius_m},{lat},{lon});
   way["amenity"~"{amenity_regex}"](around:{radius_m},{lat},{lon});
@@ -189,18 +195,34 @@ async def _fetch_raw(
 ) -> list[dict[str, Any]]:
     query = _build_overpass_query(lat, lon, venue_types, radius_m)
     last_error: Exception | None = None
-    for url in OVERPASS_URLS:
+    for i, url in enumerate(OVERPASS_URLS):
         try:
-            response = await http_client.post(url, data={"data": query}, headers=_HEADERS, timeout=15.0)
+            response = await http_client.post(url, data={"data": query}, headers=_HEADERS, timeout=20.0)
             response.raise_for_status()
             parsed = response.json()
             if not isinstance(parsed, dict):
                 raise ValueError("Overpass response is not a JSON object")
             return _parse_elements(parsed.get("elements", []), lat, lon)
         except (httpx.HTTPError, ValueError) as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            logger.warning(
+                "Overpass endpoint failed [%s] %s: %s(%s)",
+                status or "network",
+                url,
+                type(exc).__name__,
+                exc,
+            )
             last_error = exc
-            continue
-    raise HTTPException(status_code=502, detail=f"All Overpass endpoints failed: {last_error}")
+            # On rate-limit or transient error give the next mirror a moment;
+            # on 504 the server is already saturated — hit the next mirror immediately.
+            if i < len(OVERPASS_URLS) - 1 and status != 504:
+                await asyncio.sleep(0.5)
+    logger.error(
+        "All Overpass endpoints failed: %s: %s",
+        type(last_error).__name__,
+        last_error,
+    )
+    raise HTTPException(status_code=502, detail="Map data provider is temporarily unavailable. Please try again shortly.")
 
 
 def _is_explicitly_closed(opening_hours: str | None) -> bool:

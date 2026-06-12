@@ -20,6 +20,7 @@ export async function doAutopilot() {
   try { ({ lat, lng } = await getLocation()); }
   catch (err) { setStatus(err.message, 'error'); btn.disabled = false; return; }
   placeUserPin(lat, lng);
+  state.lastSearchLocation = { lat, lng };
 
   try {
     const res = await fetch('/api/v1/search', {

@@ -3,6 +3,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
+import groq
 import httpx
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate
@@ -14,6 +15,7 @@ from app.models.place import Place
 from app.models.profile import UserPreferences
 from app.models.search import PlaceInfo, PlaceIntent, PlanRecommendation
 from app.services.places_client import VALID_AMENITIES, _deduplicate, _fetch_raw
+from app.services.preferences import build_preferences_block
 
 logger = logging.getLogger(__name__)
 
@@ -182,7 +184,19 @@ async def _run_tool_agent(
     search_calls = 0
 
     for step in range(_MAX_AGENT_STEPS):
-        response: AIMessage = await llm_with_tools.ainvoke(messages)
+        response: AIMessage | None = None
+        for attempt in range(3):
+            try:
+                response = await llm_with_tools.ainvoke(messages)
+                break
+            except groq.BadRequestError as exc:
+                if exc.code == "tool_use_failed" and attempt < 2:
+                    logger.warning(
+                        "planner: tool_use_failed on step %d attempt %d, retrying", step, attempt
+                    )
+                    continue
+                raise
+        assert response is not None
         messages.append(response)
 
         if not response.tool_calls:
@@ -265,13 +279,7 @@ def _build_user_message(
     if time_context:
         msg += f"Current local time: {time_context}\n"
     msg += f"Venues ({len(places)} total): {json.dumps(places_payload, ensure_ascii=False)}"
-    if preferences:
-        if preferences.diet:
-            msg += f"\nUser dietary restrictions (apply strictly): {', '.join(preferences.diet)}"
-        if preferences.cuisines_liked:
-            msg += f"\nCuisines this user loves: {', '.join(preferences.cuisines_liked)}"
-        if preferences.cuisines_disliked:
-            msg += f"\nCuisines this user dislikes (avoid if possible): {', '.join(preferences.cuisines_disliked)}"
+    msg += build_preferences_block(preferences)
     if lang and lang != "en":
         msg += (
             f"\n\nWrite every \"reason\" and \"scenario\" text in the language with "

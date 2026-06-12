@@ -27,43 +27,110 @@ function switchDrawerTab(tab) {
   if (tab === 'history') loadDrawerHistory();
 }
 
-let drawerLiked    = [];
-let drawerDisliked = [];
+// ── Taste-profile chip groups ────────────────────────────────────────────────
+// Each group maps a DOM container of `.drawer-chip[data-val]` to a preferences
+// key. `multi` groups allow any number of active chips (stored as a list);
+// single-select groups store one slug or null. The markup is the single source
+// of truth for which chips exist (see index.html / profile_setup.html).
+const PREF_GROUPS = [
+  { id: 'drawerDietChips',    key: 'diet',           multi: true  },
+  { id: 'drawerSpiceChips',   key: 'spice',          multi: false },
+  { id: 'drawerStyleChips',   key: 'adventure',      multi: false },
+  { id: 'drawerCuisineChips', key: 'cuisines_liked', multi: true  },
+  { id: 'drawerAvoidChips',   key: 'avoid',          multi: true  },
+  { id: 'drawerDrinksChips',  key: 'drinks',         multi: true  },
+];
 
-function renderTagChips(containerId, tags, listRef) {
-  const el = document.getElementById(containerId);
-  el.innerHTML = '';
-  tags.forEach((tag, i) => {
-    const chip = document.createElement('div');
-    chip.className = 'drawer-chip active';
-    chip.textContent = tag + ' ✕';
-    chip.addEventListener('click', () => {
-      listRef.splice(i, 1);
-      renderTagChips(containerId, listRef, listRef);
-      updateSaveBtn();
+// Legacy free-text dislikes are no longer editable here, but we round-trip them
+// on save so a returning user's existing data isn't wiped.
+let drawerLegacyDisliked = [];
+
+// Last-loaded values, used to revert on Cancel and to re-render the read-only
+// "about me" summary (view mode shows only the chips the user actually picked).
+let loadedPrefs = {};
+let loadedName  = '';
+
+function wirePrefChips() {
+  PREF_GROUPS.forEach(g => {
+    const container = document.getElementById(g.id);
+    if (!container) return;
+    container.querySelectorAll('.drawer-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        if (g.multi) {
+          chip.classList.toggle('active');
+        } else {
+          const wasActive = chip.classList.contains('active');
+          container.querySelectorAll('.drawer-chip').forEach(c => c.classList.remove('active'));
+          if (!wasActive) chip.classList.add('active');
+        }
+        updateSaveBtn();
+      });
     });
-    el.appendChild(chip);
   });
 }
 
-function addTag(inputId, list, containerId) {
-  const input = document.getElementById(inputId);
-  const val   = input.value.trim();
-  if (!val || list.includes(val)) { input.value = ''; return; }
-  list.push(val);
-  input.value = '';
-  renderTagChips(containerId, list, list);
-  updateSaveBtn();
+function applyPrefsToChips(prefs) {
+  PREF_GROUPS.forEach(g => {
+    const container = document.getElementById(g.id);
+    if (!container) return;
+    const val = prefs[g.key];
+    const selected = g.multi ? (val || []) : (val ? [val] : []);
+    container.querySelectorAll('.drawer-chip').forEach(chip => {
+      chip.classList.toggle('active', selected.includes(chip.dataset.val));
+    });
+  });
+}
+
+function readPrefsFromChips() {
+  const out = {};
+  PREF_GROUPS.forEach(g => {
+    const container = document.getElementById(g.id);
+    if (!container) return;
+    const active = [...container.querySelectorAll('.drawer-chip.active')].map(c => c.dataset.val);
+    out[g.key] = g.multi ? active : (active[0] || null);
+  });
+  out.cuisines_disliked = drawerLegacyDisliked;
+  return out;
+}
+
+// ── View vs edit mode ────────────────────────────────────────────────────────
+// View mode shows ONLY the chips the user selected (a compact "about me"
+// summary) and hides empty sections. Edit mode reveals the full catalog so the
+// user can re-pick or reset. The CSS keys off `.mode-view` / `.mode-edit`.
+function refreshViewMode() {
+  let any = false;
+  document.querySelectorAll('#drawerPanelProfile .pref-section').forEach(sec => {
+    const n = sec.querySelectorAll('.drawer-chip.active').length;
+    sec.classList.toggle('is-empty', n === 0);
+    if (n > 0) any = true;
+  });
+  const hint = document.getElementById('drawerPrefsHint');
+  if (hint) hint.style.display = any ? 'none' : '';
+}
+
+function setMode(mode) {
+  const panel     = document.getElementById('drawerPanelProfile');
+  const editBtn   = document.getElementById('drawerEditBtn');
+  const nameInput = document.getElementById('drawerDisplayName');
+  const editing   = mode === 'edit';
+  panel.classList.toggle('mode-edit', editing);
+  panel.classList.toggle('mode-view', !editing);
+  if (editBtn) editBtn.textContent = editing ? t('drawer.cancel') : t('drawer.edit');
+  if (nameInput) nameInput.toggleAttribute('readonly', !editing);
+  if (!editing) refreshViewMode();
 }
 
 let drawerInitialState = null;
 
 function getDrawerCurrentState() {
+  const prefs = readPrefsFromChips();
+  const snapshot = PREF_GROUPS.map(g => {
+    const v = prefs[g.key];
+    return Array.isArray(v) ? [...v].sort().join(',') : (v || '');
+  }).join('|');
   return {
-    name:     document.getElementById('drawerDisplayName').value.trim(),
-    diet:     [...document.querySelectorAll('#drawerDietChips .drawer-chip.active')].map(c => c.dataset.diet).sort().join(','),
-    liked:    [...drawerLiked].sort().join(','),
-    disliked: [...drawerDisliked].sort().join(','),
+    name:  document.getElementById('drawerDisplayName').value.trim(),
+    prefs: snapshot,
   };
 }
 
@@ -72,10 +139,7 @@ function updateSaveBtn() {
   if (!btn) return;
   if (!drawerInitialState) { btn.disabled = true; return; }
   const cur = getDrawerCurrentState();
-  btn.disabled = cur.name     === drawerInitialState.name &&
-                 cur.diet     === drawerInitialState.diet &&
-                 cur.liked    === drawerInitialState.liked &&
-                 cur.disliked === drawerInitialState.disliked;
+  btn.disabled = cur.name === drawerInitialState.name && cur.prefs === drawerInitialState.prefs;
 }
 
 async function loadDrawerProfile() {
@@ -97,23 +161,22 @@ async function loadDrawerProfile() {
       document.getElementById('drawerUserEmail').textContent = me.email || '';
       document.getElementById('drawerDisplayName').value     = me.display_name || '';
       document.getElementById('drawerEmail').value           = me.email || '';
+      loadedName = me.display_name || '';
     } else if (meRes.status !== 404) {
       serverError = true;
     }
 
     if (prefRes.ok) {
       const prefs = await prefRes.json();
-      document.querySelectorAll('#drawerDietChips .drawer-chip').forEach(chip => {
-        chip.classList.toggle('active', (prefs.diet || []).includes(chip.dataset.diet));
-      });
-      drawerLiked    = [...(prefs.cuisines_liked    || [])];
-      drawerDisliked = [...(prefs.cuisines_disliked || [])];
-      renderTagChips('drawerCuisinesLiked',    drawerLiked,    drawerLiked);
-      renderTagChips('drawerCuisinesDisliked', drawerDisliked, drawerDisliked);
+      loadedPrefs = prefs;
+      drawerLegacyDisliked = [...(prefs.cuisines_disliked || [])];
+      applyPrefsToChips(prefs);
     } else if (prefRes.status !== 404) {
       serverError = true;
     }
   } catch { serverError = true; }
+
+  setMode('view');
 
   if (statusEl && serverError) {
     statusEl.textContent = t('drawer.serverError');
@@ -183,21 +246,34 @@ document.getElementById('drawerClose').addEventListener('click', closeDrawer);
 document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer);
 document.querySelectorAll('.drawer-tab').forEach(t => t.addEventListener('click', () => switchDrawerTab(t.dataset.drawertab)));
 
-document.getElementById('drawerCuisineLikedAdd').addEventListener('click', () => addTag('drawerCuisineLikedInput', drawerLiked, 'drawerCuisinesLiked'));
-document.getElementById('drawerCuisineDislikedAdd').addEventListener('click', () => addTag('drawerCuisineDislikedInput', drawerDisliked, 'drawerCuisinesDisliked'));
-document.getElementById('drawerCuisineLikedInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTag('drawerCuisineLikedInput', drawerLiked, 'drawerCuisinesLiked'); });
-document.getElementById('drawerCuisineDislikedInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTag('drawerCuisineDislikedInput', drawerDisliked, 'drawerCuisinesDisliked'); });
-
 document.getElementById('drawerDisplayName').addEventListener('input', updateSaveBtn);
-document.querySelectorAll('#drawerDietChips .drawer-chip').forEach(chip => {
-  chip.addEventListener('click', () => { chip.classList.toggle('active'); updateSaveBtn(); });
+wirePrefChips();
+
+document.getElementById('drawerEditBtn').addEventListener('click', () => {
+  const editing = document.getElementById('drawerPanelProfile').classList.contains('mode-edit');
+  if (editing) {
+    // Cancel → revert to last-loaded values.
+    applyPrefsToChips(loadedPrefs);
+    document.getElementById('drawerDisplayName').value = loadedName;
+    drawerInitialState = getDrawerCurrentState();
+    updateSaveBtn();
+    setMode('view');
+  } else {
+    setMode('edit');
+  }
+});
+
+document.getElementById('drawerResetBtn').addEventListener('click', () => {
+  document.querySelectorAll('#drawerPanelProfile .pref-section .drawer-chip.active')
+    .forEach(c => c.classList.remove('active'));
+  updateSaveBtn();
 });
 
 document.getElementById('drawerSaveBtn').addEventListener('click', async () => {
   const btn         = document.getElementById('drawerSaveBtn');
   btn.disabled      = true;
   const displayName = document.getElementById('drawerDisplayName').value.trim();
-  const diet        = [...document.querySelectorAll('#drawerDietChips .drawer-chip.active')].map(c => c.dataset.diet);
+  const prefs       = readPrefsFromChips();
   try {
     await Promise.all([
       fetch('/api/v1/profile/me', {
@@ -206,15 +282,18 @@ document.getElementById('drawerSaveBtn').addEventListener('click', async () => {
       }),
       fetch('/api/v1/profile/preferences', {
         method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({ diet, cuisines_liked: drawerLiked, cuisines_disliked: drawerDisliked }),
+        body: JSON.stringify(prefs),
       }),
     ]);
     const newName   = displayName || document.getElementById('drawerEmail').value;
     document.getElementById('drawerUserName').textContent = newName || t('drawer.user');
     const avatarBtn = document.getElementById('avatarBtn');
     if (avatarBtn && newName) avatarBtn.textContent = newName[0].toUpperCase();
+    // Persisted values become the new baseline, then collapse back to the summary.
+    loadedPrefs = readPrefsFromChips();
+    loadedName  = displayName;
     drawerInitialState = getDrawerCurrentState();
     btn.textContent = t('drawer.saved');
-    setTimeout(() => { btn.textContent = t('drawer.save'); updateSaveBtn(); }, 1500);
+    setTimeout(() => { btn.textContent = t('drawer.save'); updateSaveBtn(); setMode('view'); }, 900);
   } catch { updateSaveBtn(); }
 });

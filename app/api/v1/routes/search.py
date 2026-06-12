@@ -3,17 +3,15 @@ from collections.abc import AsyncIterator
 import httpx
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.core.deps import get_optional_user
+from app.core.rate_limit import limiter
 from app.models.profile import UserPreferences
 from app.models.search import SearchRequest
 from app.models.user import User
 from app.services.search_service import stream_search
 
 router = APIRouter()
-limiter = Limiter(key_func=get_remote_address)
 
 
 async def _event_stream(

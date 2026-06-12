@@ -28,6 +28,68 @@ export function addNoteWidget(container, place) {
   return () => wrap.querySelector('.place-note-input').value.trim();
 }
 
+export function addFeedbackWidget(container, place) {
+  // Capture context at render time, not at click time
+  const capturedMode = state.currentMode;
+  const loc = state.lastSearchLocation;
+  const originStr = loc ? `origin:${loc.lat.toFixed(5)},${loc.lng.toFixed(5)}` : null;
+  let capturedQuery = null;
+  if (capturedMode === 'plan') {
+    const chip = g => document.querySelector(`.plan-chip[data-group="${g}"].active`)?.dataset.val;
+    const when   = chip('when') || 'now';
+    const group  = chip('group') || 'solo';
+    const budget = chip('budget') || 'any';
+    const radius = document.getElementById('planRadiusSlider')?.value || '1.5';
+    const prefs  = document.getElementById('planQuery')?.value.trim();
+    const parts  = [`when:${when}`, `group:${group}`, `budget:${budget}`, `radius:${radius}km`];
+    if (prefs) parts.push(`prefs:${prefs}`);
+    if (originStr) parts.push(originStr);
+    capturedQuery = parts.join(' | ');
+  } else if (originStr) {
+    capturedQuery = originStr;
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'feedback-wrap';
+  wrap.innerHTML = `
+    <button class="feedback-toggle">Not happy with this pick?</button>
+    <div class="feedback-body">
+      <textarea class="feedback-input" rows="2" maxlength="1000" placeholder="Tell us why…"></textarea>
+      <button class="feedback-send">Send</button>
+    </div>
+  `;
+  container.appendChild(wrap);
+
+  wrap.querySelector('.feedback-toggle').addEventListener('click', () => {
+    wrap.classList.toggle('open');
+    if (wrap.classList.contains('open')) wrap.querySelector('.feedback-input').focus();
+  });
+
+  wrap.querySelector('.feedback-send').addEventListener('click', async () => {
+    const comment = wrap.querySelector('.feedback-input').value.trim();
+    if (!comment) return;
+    const sendBtn = wrap.querySelector('.feedback-send');
+    sendBtn.disabled = true;
+    try {
+      await fetch('/api/v1/feedback', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          place_name: place.name || '',
+          query: capturedQuery,
+          mode: capturedMode,
+          comment,
+        }),
+      });
+      wrap.innerHTML = '<span class="feedback-thanks">Thanks! We\'ll look into it.</span>';
+    } catch (_) {
+      sendBtn.disabled = false;
+    }
+  });
+
+  wrap.addEventListener('click', e => e.stopPropagation());
+}
+
 export function addFavButton(container, place) {
   const btn = document.createElement('button');
   btn.className = 'fav-btn' + (getToken() ? ' visible' : '');
@@ -93,6 +155,7 @@ export function renderPlaces(places) {
     cardsGrid.appendChild(card);
     const getNotes = addNoteWidget(card, p);
     addFavButton(card, p);
+    addFeedbackWidget(card, p);
     card.querySelector('.card-nav').addEventListener('click', () => recordNavigate(p, getNotes()));
 
     const marker = L.marker([p.lat, p.lon], { icon: pinIcon(i, isTop) })
@@ -176,6 +239,7 @@ export function renderRecommendation(data, animate = true, onRetry = null) {
   cardsGrid.appendChild(card);
   const getNotes = addNoteWidget(card, place);
   addFavButton(card, place);
+  addFeedbackWidget(card, place);
   card.querySelector('.rec-nav').addEventListener('click', () => recordNavigate(place, getNotes()));
   card.querySelector('.rec-another').addEventListener('click', () => {
     if (state.recFallback) {
@@ -234,6 +298,7 @@ export function renderPlanRecommendations(data) {
     cardsGrid.appendChild(card);
     const getNotes = addNoteWidget(card, place);
     addFavButton(card, place);
+    addFeedbackWidget(card, place);
     card.querySelector('.card-nav').addEventListener('click', () => recordNavigate(place, getNotes()));
     card.addEventListener('click', e => {
       if (e.target.closest('.card-nav') || e.target.closest('.place-note-wrap')) return;

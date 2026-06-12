@@ -78,6 +78,12 @@ Good: "7 min walk · Italian restaurant · Sit-down dining with a proper menu, f
 Bad: "This wonderful venue is a great match for your needs."
 Bad: "A perfect choice for your dining experience."
 
+## Diner profile
+Some requests include a "Diner profile" block with this user's durable tastes (diet, spice, dining style, favorite cuisines, deal-breakers, drinks).
+- Dietary restrictions and deal-breakers are hard — score a venue that violates them 0.0.
+- Spice, dining style, favorite cuisines and drinks are soft modifiers: nudge matching venues up by up to ~0.2, but never above a venue that better fits the actual query and venue type.
+- The user's query and intent always outrank the durable profile when they conflict.
+
 ## Output rules
 - Skip venues with a clear 0.0 score — do not include them in the output.
 - Return at most 15 venues, ranked best to worst by match_score.

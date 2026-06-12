@@ -34,11 +34,19 @@ function detectLang() {
   return AVAILABLE_LANGS.some(l => l.code === nav) ? nav : 'en';
 }
 
+// Turn a missing key into readable text, e.g. "taste.drinks" → "Drinks",
+// "taste.cuisine.middle_eastern" → "Middle eastern". Used only as a last-resort
+// fallback so the UI never shows a raw dotted key, even with a stale dictionary.
+function humanize(key) {
+  const last = String(key).split('.').pop().replace(/_/g, ' ');
+  return last.charAt(0).toUpperCase() + last.slice(1);
+}
+
 // Translate a key, interpolating {placeholder} tokens from `vars`.
-// Falls back to the key itself if missing (visible-but-safe during development).
+// Falls back to a humanized form of the key if the dictionary lacks it.
 export function t(key, vars) {
   let s = dict[key];
-  if (s == null) s = key;
+  if (s == null) s = humanize(key);
   if (vars) {
     for (const [k, v] of Object.entries(vars)) {
       s = s.replaceAll(`{${k}}`, String(v));
@@ -61,18 +69,25 @@ async function fetchDict(lang) {
 //   data-i18n-html       → innerHTML (for strings containing markup)
 //   data-i18n-placeholder→ placeholder attribute
 //   data-i18n-title      → title attribute
+// Only overwrite when the dictionary actually has the key. Missing keys keep
+// the element's hardcoded English text from the HTML — readable by design, so a
+// stale or partial dictionary degrades to English instead of showing raw keys.
 export function applyDOM(root = document) {
   root.querySelectorAll('[data-i18n]').forEach(el => {
-    el.textContent = t(el.dataset.i18n);
+    const v = dict[el.dataset.i18n];
+    if (v != null) el.textContent = v;
   });
   root.querySelectorAll('[data-i18n-html]').forEach(el => {
-    el.innerHTML = t(el.dataset.i18nHtml);
+    const v = dict[el.dataset.i18nHtml];
+    if (v != null) el.innerHTML = v;
   });
   root.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-    el.placeholder = t(el.dataset.i18nPlaceholder);
+    const v = dict[el.dataset.i18nPlaceholder];
+    if (v != null) el.placeholder = v;
   });
   root.querySelectorAll('[data-i18n-title]').forEach(el => {
-    el.title = t(el.dataset.i18nTitle);
+    const v = dict[el.dataset.i18nTitle];
+    if (v != null) el.title = v;
   });
 }
 

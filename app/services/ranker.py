@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 from app.models.place import Place
 from app.models.profile import UserPreferences
 from app.models.search import PlaceIntent, RankedPlace
+from app.services.preferences import build_preferences_block
 
 _SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "ranking.txt").read_text()
 
@@ -78,13 +79,7 @@ async def rank_places(
     if time_context:
         user_message += f"Current local time: {time_context}\n"
     user_message += f"Venues: {json.dumps(places_payload, ensure_ascii=False)}"
-    if preferences:
-        if preferences.diet:
-            user_message += f"\nUser dietary restrictions (apply strictly): {', '.join(preferences.diet)}"
-        if preferences.cuisines_liked:
-            user_message += f"\nCuisines this user loves: {', '.join(preferences.cuisines_liked)}"
-        if preferences.cuisines_disliked:
-            user_message += f"\nCuisines this user dislikes (score these lower): {', '.join(preferences.cuisines_disliked)}"
+    user_message += build_preferences_block(preferences)
     if lang and lang != "en":
         user_message += f"\n\nWrite every \"reason\" text in the language with ISO code '{lang}'."
 

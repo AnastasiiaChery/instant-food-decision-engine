@@ -466,6 +466,34 @@ header {
 .place-note-wrap.open .place-note-input { display: block; }
 .place-note-wrap.open .place-note-toggle { color: var(--text-2); }
 
+/* Feedback widget */
+.feedback-wrap { margin-top: 6px; }
+.feedback-toggle {
+  font-size: 11px; color: var(--text-3); background: none; border: none;
+  cursor: pointer; padding: 0; font-family: 'DM Sans', sans-serif; transition: color 0.15s;
+}
+.feedback-toggle:hover { color: var(--text-2); }
+.feedback-body {
+  display: none; margin-top: 6px; gap: 6px; flex-direction: column;
+}
+.feedback-wrap.open .feedback-body { display: flex; }
+.feedback-input {
+  width: 100%; padding: 7px 10px; font-family: 'DM Sans', sans-serif; font-size: 13px;
+  color: var(--text); background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; resize: none; outline: none; transition: border-color 0.15s;
+}
+.feedback-input:focus { border-color: var(--accent); }
+.feedback-send {
+  align-self: flex-end; padding: 5px 14px; font-size: 12px; font-family: 'DM Sans', sans-serif;
+  font-weight: 500; color: var(--surface); background: var(--accent); border: none;
+  border-radius: 6px; cursor: pointer; transition: opacity 0.15s;
+}
+.feedback-send:hover { opacity: 0.85; }
+.feedback-send:disabled { opacity: 0.5; cursor: default; }
+.feedback-thanks {
+  font-size: 12px; color: var(--text-2); font-family: 'DM Sans', sans-serif;
+}
+
 /* Rec card */
 .rec-card {
   background: var(--surface);
@@ -896,3 +924,70 @@ body.is-guest #landing {
 .landing-step-desc { font-size: 13px; color: var(--text-2); line-height: 1.55; }
 
 .landing-note { font-size: 12px; color: var(--text-3); margin-top: -8px; }
+
+/* ── First-run taste questionnaire (/profile/setup) ──────────────────────── */
+.onb-body {
+  min-height: 100vh;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 32px 16px 64px;
+}
+.onb-card {
+  width: 100%; max-width: 560px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 18px; padding: 28px 28px 24px;
+  box-shadow: 0 6px 30px rgba(26, 25, 24, 0.06);
+}
+.onb-card .brand { display: inline-block; font-size: 20px; margin-bottom: 18px; }
+.onb-title {
+  font-family: 'Fraunces', serif; font-weight: 600;
+  font-size: 28px; line-height: 1.15; color: var(--text); margin: 0 0 8px;
+}
+.onb-subtitle {
+  font-size: 14px; color: var(--text-2); line-height: 1.55;
+  margin: 0 0 24px;
+}
+.onb-card .drawer-section { margin-bottom: 22px; }
+.onb-actions {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border);
+}
+.onb-save {
+  flex: 1; padding: 12px; background: var(--accent); color: #fff;
+  border: none; border-radius: 10px; font-size: 15px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif; cursor: pointer; transition: opacity 0.15s;
+}
+.onb-save:hover:not(:disabled) { opacity: 0.88; }
+.onb-save:disabled { opacity: 0.6; cursor: default; }
+.onb-skip {
+  padding: 12px 14px; background: none; border: none;
+  color: var(--text-3); font-size: 14px; font-family: 'DM Sans', sans-serif;
+  cursor: pointer; transition: color 0.15s;
+}
+.onb-skip:hover { color: var(--text-2); }
+
+/* ── Profile drawer: view (summary) vs edit (full catalog) ───────────────── */
+.mode-view #drawerSaveBtn,
+.mode-view #drawerResetBtn { display: none; }
+.mode-edit #drawerPrefsHint { display: none !important; }
+.mode-view .pref-section.is-empty { display: none; }
+.mode-view .pref-section .drawer-chip:not(.active) { display: none; }
+.mode-view .pref-section .drawer-chip { pointer-events: none; cursor: default; }
+.drawer-edit {
+  width: 100%; padding: 9px; margin-top: 8px;
+  background: var(--bg); color: var(--text);
+  border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: 14px; font-weight: 500; font-family: 'DM Sans', sans-serif;
+  cursor: pointer; transition: border-color 0.15s;
+}
+.drawer-edit:hover { border-color: var(--accent); }
+.drawer-reset {
+  width: 100%; padding: 8px; margin-top: 8px;
+  background: none; color: var(--text-3); border: none;
+  font-size: 13px; font-family: 'DM Sans', sans-serif;
+  cursor: pointer; transition: color 0.15s;
+}
+.drawer-reset:hover { color: #ef4444; }
+.drawer-prefs-hint {
+  font-size: 13px; color: var(--text-3);
+  margin: 4px 0 10px; line-height: 1.5;
+}

@@ -15,10 +15,15 @@ from pathlib import Path
 
 from langchain_groq import ChatGroq
 
+from app.infrastructure import cache
+
 logger = logging.getLogger(__name__)
 
 _I18N_DIR = Path(__file__).resolve().parent.parent.parent / "static" / "i18n"
 _BASE_LANG = "en"
+# Redis key prefix for generated translations. Bump when en.json changes shape
+# so stale cached translations (missing new keys) are not served indefinitely.
+_REDIS_PREFIX = "i18n_v1"
 
 # Accept ISO 639-1 codes, optionally with a region subtag (e.g. "pt-br").
 _LANG_RE = re.compile(r"^[a-z]{2}(-[a-z]{2})?$")
@@ -114,6 +119,15 @@ async def get_translations(lang: str, ai_client: ChatGroq) -> dict[str, str]:
             _cache[lang] = merged
             return merged
 
+        # Redis survives restarts on ephemeral/read-only filesystems (containers,
+        # PaaS), so a language is translated by the LLM at most once across the
+        # whole fleet rather than once per cold start.
+        from_redis = await cache.get_json(f"{_REDIS_PREFIX}:{lang}")
+        if isinstance(from_redis, dict):
+            merged = {**base, **from_redis}
+            _cache[lang] = merged
+            return merged
+
         try:
             translated = await _translate_with_llm(lang, base, ai_client)
         except Exception:
@@ -122,4 +136,5 @@ async def get_translations(lang: str, ai_client: ChatGroq) -> dict[str, str]:
 
         _cache[lang] = translated
         _write_to_disk(lang, translated)
+        await cache.set_json(f"{_REDIS_PREFIX}:{lang}", translated)
         return translated

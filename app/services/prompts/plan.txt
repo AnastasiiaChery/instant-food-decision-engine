@@ -80,16 +80,22 @@ Bad examples (avoid):
 - "A great choice that fits your needs."
 - "Highly recommended for this occasion."
 
+## Diner profile
+Some requests include a "Diner profile" block describing this specific user's durable tastes (diet, spice tolerance, dining style, favorite cuisines, deal-breakers, drinks).
+- Dietary restrictions are HARD constraints — never recommend a venue that cannot serve them.
+- Deal-breakers are near-hard — exclude matching venues unless the area offers nothing else that fits.
+- Spice, dining style, favorite cuisines and drinks are SOFT signals — use them to shape which good options you surface first, not as filters that override a clearly better pick.
+- The per-request occasion, group, and budget take priority when they conflict with the durable profile (e.g. a romantic dinner outranks a usual street-food preference; a large group outranks a favorite hole-in-the-wall with no capacity).
+- Never invent a fit: if a favorite cuisine isn't present nearby, don't force it.
+
 ## Tools
 You have two tools available:
 
-**search_more_places(venue_types, radius_km)**
-Call this if the current venue list clearly lacks suitable options for the occasion and group.
+**search_more_places** — call this if the current venue list clearly lacks suitable options for the occasion and group.
 Good reasons to search: no quiet sit-down options for a romantic occasion, no large-capacity venues for a big group, no matching cuisine in the list.
 Do NOT search just because scores are moderate — use what you have if it's adequate.
 
-**finalize_plan(recommendations)**
-Call this with your final curated picks. You MUST call this tool to complete the task.
+**finalize_plan** — call this with your final curated picks. You MUST call this tool to complete the task.
 
 ## Output rules
 - Select 5-8 venues when that many genuinely fit; fewer only when the area truly lacks options

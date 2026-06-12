@@ -47,6 +47,7 @@ export async function doPlan() {
     catch (err) { setStatus(err.message, 'error'); btn.disabled = false; return; }
   }
   placeUserPin(lat, lng);
+  state.lastSearchLocation = { lat, lng };
 
   let when = document.querySelector('.plan-chip[data-group="when"].active')?.dataset.val || 'now';
   if (when === 'custom') {

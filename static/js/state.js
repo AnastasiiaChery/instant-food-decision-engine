@@ -10,4 +10,7 @@ export const state = {
   planCustomLocation: null,
   planMapClickActive: false,
   planCustomMarker: null,
+  lastMode: 'autopilot',
+  lastQuery: null,
+  lastSearchLocation: null,
 };

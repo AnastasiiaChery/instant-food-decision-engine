@@ -352,9 +352,9 @@ async def stream_search(
 
     try:
         places = await _prepare_places(request, radius_m, venue_types, intent, now_utc, http_client)
-    except Exception as exc:
+    except Exception:
         logger.exception("places fetch failed at (%.4f, %.4f)", request.lat, request.lng)
-        yield _error_event(str(exc))
+        yield _error_event("Could not load nearby places right now. Please try again shortly.")
         return
 
     if not places:
