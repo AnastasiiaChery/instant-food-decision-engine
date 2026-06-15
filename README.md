@@ -9,7 +9,7 @@ AI-powered service that finds and recommends food and drink venues nearby. Enter
 | Layer | Tech |
 |-------|------|
 | API | FastAPI + Uvicorn |
-| AI | Groq `llama-3.3-70b-versatile` via LangChain |
+| AI | Switchable provider via LangChain — Groq (default) · any OpenAI-compatible host · Gemini. Two model tiers: heavy (ranking/planning) + fast (intent/translation) |
 | Geo | OpenStreetMap / Overpass API (2 failover endpoints) |
 | Auth | Google OAuth2 + email/password + JWT (python-jose, passlib/bcrypt) |
 | DB | PostgreSQL 16 + SQLAlchemy 2 async + Alembic |
@@ -29,6 +29,8 @@ POST /api/v1/search
   ├─► SSE "intent"   — emitted immediately after parsing
   ├─ Overpass fetches only matched venue types (1–3 instead of ~13), deduped
   ├─ Heuristic pre-sort by distance · mood · cuisine · features → top 30
+  │   └─ cuisine is a hard gate: when the query names a cuisine, venues of a
+  │      different cuisine are capped low (in both the heuristic and the LLM)
   ├─► SSE "places"
   │
   ├─ [autopilot]  LLM ranks, picks top 1 + fallback
@@ -93,23 +95,28 @@ Other Makefile targets: `make test` · `make redis` (standalone Redis container)
 
 ### Environment variables
 
-Copy `.env.example` → `.env`:
+Copy `.env.example` → `.env` (it documents every variable). The essentials:
 
 ```
-GROQ_API_KEY=...
-AI_BASE_URL=https://api.groq.com/openai/v1   # any OpenAI-compatible endpoint
-AI_MODEL=llama-3.3-70b-versatile
+# LLM — provider is swappable without a code change
+AI_PROVIDER=groq                          # groq (default) · openai · gemini
+AI_API_KEY=...                            # falls back to GROQ_API_KEY if empty
+AI_MODEL=llama-3.3-70b-versatile          # heavy tier (ranking/planning)
+AI_MODEL_FAST=llama-3.1-8b-instant        # fast tier (intent/translation)
+AI_BASE_URL=https://api.groq.com/openai/v1  # only used when AI_PROVIDER=openai
 
-GOOGLE_CLIENT_ID=...
+# Auth
+GOOGLE_CLIENT_ID=...                      # optional — blank disables Google sign-in
 GOOGLE_CLIENT_SECRET=...
-GOOGLE_REDIRECT_URI=http://localhost:8000/auth/callback
-JWT_SECRET=change-me-in-prod
+GOOGLE_REDIRECT_URI=http://localhost:8000/auth/callback   # must be https in prod
+JWT_SECRET=change-me-in-prod              # REQUIRED in prod — `openssl rand -hex 32`
 ```
 
 Optional (shown with defaults):
 ```
+ENVIRONMENT=development       # "production" enables fail-fast checks (see below)
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/instantfood
-REDIS_URL=                    # empty = no cache; TTL is 20 min when set
+REDIS_URL=                    # empty = no cache; required in production
 SEARCH_RADIUS_M=1500          # initial search radius
 MAX_RADIUS_M=3000             # hard cap (user slider 0.5–3 km)
 JWT_EXPIRE_MINUTES=10080      # 7 days
@@ -119,6 +126,11 @@ LANGSMITH_API_KEY=            # empty = tracing disabled
 LANGSMITH_TRACING=true
 LANGSMITH_PROJECT=instant-food-decision-engine
 ```
+
+**Production fail-fast.** With `ENVIRONMENT=production` the app refuses to start
+when any of these are unsafe: a default/unset `JWT_SECRET`, a missing LLM API key,
+the default `postgres:postgres` DB credentials, an unset `REDIS_URL`, or a
+non-`https` `GOOGLE_REDIRECT_URI` (when Google OAuth is enabled).
 
 ## Search request
 
@@ -212,7 +224,7 @@ alembic upgrade head                              # apply all
 alembic revision --autogenerate -m "description"  # new migration
 ```
 
-Tables: `users` (`password_hash`, `preferences` JSON), `search_history` (`action_type`, `place_notes`).
+Tables: `users` (`password_hash`, `preferences` JSON), `search_history` (`match_score`, `action_type`).
 
 ## Tests
 
@@ -229,3 +241,12 @@ docker compose up --build      # build + start (runs migrations automatically)
 docker compose down
 curl http://localhost:8000/ready
 ```
+
+The image runs as a non-root user and starts `WEB_CONCURRENCY` uvicorn workers
+(default 4 — override per deploy). Compose ships Postgres and Redis with named
+volumes for persistence; their ports are bound to `127.0.0.1` only. Set
+`POSTGRES_PASSWORD` to override the local default.
+
+In production (`ENVIRONMENT=production`) the interactive API docs (`/docs`,
+`/redoc`, `/openapi.json`) are disabled, and every request is logged with method,
+path, status and latency. Full deployment walkthrough: [docs/deployment.md](docs/deployment.md).
