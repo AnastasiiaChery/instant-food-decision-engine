@@ -72,9 +72,26 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # --- First-party analytics (all stored in our own Postgres) ---
+    # Master switch. When false, the /api/v1/events endpoint and the request_log
+    # middleware are inert no-ops (useful for local dev or to disable tracking).
+    analytics_enabled: bool = True
+    # Comma-separated emails allowed to read GET /api/v1/admin/stats. Empty = nobody
+    # (the dashboard is locked) — set this to your own email before relying on it.
+    analytics_admin_emails: str = ""
+    # Retention windows for the background prune job. Behaviour events are kept longer
+    # than raw request logs, which are high-volume and only useful short-term.
+    analytics_events_retention_days: int = 90
+    analytics_requests_retention_days: int = 30
+
     @property
     def is_production(self) -> bool:
         return self.environment.strip().lower() in ("production", "prod")
+
+    @property
+    def analytics_admin_emails_list(self) -> list[str]:
+        """Lower-cased allowlist of admins who can read the stats dashboard."""
+        return [e.strip().lower() for e in self.analytics_admin_emails.split(",") if e.strip()]
 
     @property
     def effective_api_key(self) -> str:

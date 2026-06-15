@@ -1,6 +1,7 @@
 import { TOKEN_KEY, ONBOARDED_KEY, getToken, setToken, parseJwt, isTokenValid } from './utils.js';
 import { openDrawer } from './drawer.js';
 import { t } from './i18n.js';
+import { track } from './analytics.js';
 
 export function openAuthModal(tab) {
   document.getElementById('authModal').classList.add('open');
@@ -34,6 +35,7 @@ export function initAuth() {
   const urlToken   = hashParams.get('token') || new URLSearchParams(location.search).get('token');
   if (urlToken) {
     setToken(urlToken);
+    track('login', { method: 'google' });
     history.replaceState({}, '', '/');
     if (!localStorage.getItem(ONBOARDED_KEY)) {
       fetch('/api/v1/profile/preferences', { headers: { Authorization: `Bearer ${urlToken}` } })
@@ -122,6 +124,7 @@ document.getElementById('loginSubmit').addEventListener('click', async () => {
     });
     const data = await res.json();
     if (!res.ok) { errEl.textContent = data.detail || t('auth.signInFailed'); return; }
+    track('login', { method: 'password' });
     await handleAuthSuccess(data.token);
   } catch { errEl.textContent = t('auth.networkError'); }
   finally { btn.disabled = false; }
@@ -145,6 +148,7 @@ document.getElementById('registerSubmit').addEventListener('click', async () => 
     });
     const data = await res.json();
     if (!res.ok) { errEl.textContent = data.detail || t('auth.registrationFailed'); return; }
+    track('signup', { method: 'password' });
     // Fresh account → send straight into the taste questionnaire.
     setToken(data.token);
     closeAuthModal();

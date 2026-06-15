@@ -1,5 +1,6 @@
 import { getToken } from './utils.js';
 import { t } from './i18n.js';
+import { track } from './analytics.js';
 
 const GEO_CONSENT_KEY = 'instantfood_geo_consent';
 
@@ -69,8 +70,10 @@ export async function consumeSSE(res, onEvent) {
 }
 
 export function recordNavigate(place) {
+  // Fires for everyone (incl. guests) — this is the funnel's conversion step.
+  track('navigate_clicked', { type: place.amenity || 'restaurant' });
   const token = getToken();
-  if (!token) return;
+  if (!token) return;  // history persistence requires auth; the analytics event already fired
   fetch('/api/v1/history/navigate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

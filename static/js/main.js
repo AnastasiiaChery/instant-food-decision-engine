@@ -5,6 +5,7 @@ import { initAuth, openAuthModal } from './auth.js';
 import { doAutopilot } from './autopilot.js';
 import { doPlan } from './plan.js';
 import { initI18n, setLang, getLang, t, AVAILABLE_LANGS } from './i18n.js';
+import { initAnalytics, track } from './analytics.js';
 
 function switchMode(mode) {
   state.currentMode = mode;
@@ -66,3 +67,6 @@ document.getElementById('landingSignInBtn')?.addEventListener('click', () => ope
 // NOT wait on this — a slow first-time translation would otherwise freeze every
 // button until the fetch returns.
 initI18n();
+
+// First-party analytics: records the initial page_view and wires flush-on-unload.
+initAnalytics();

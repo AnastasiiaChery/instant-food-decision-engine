@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { escHtml, safeUrl, authHeaders, getToken } from './utils.js';
 import { setStatus } from './ui.js';
 import { recordNavigate } from './api.js';
+import { track } from './analytics.js';
 import { initMap, openMap, clearMarkers, pinIcon, showMapTrigger } from './map.js';
 import { t } from './i18n.js';
 
@@ -86,6 +87,7 @@ export function addFavButton(container, place) {
     if (!getToken()) return;
     btn.classList.add('active');
     btn.textContent = '♥';
+    track('favorite_clicked', { type: place.amenity || 'restaurant' });
     fetch('/api/v1/history/navigate', {
       method: 'POST',
       headers: authHeaders(),

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -17,11 +18,13 @@ from app.core.deps import build_ai_clients, configure_langsmith
 from app.core.rate_limit import limiter
 from app.infrastructure import cache
 from app.api.v1.routes.auth import router as auth_router
+from app.api.v1.routes.events import router as events_router
 from app.api.v1.routes.feedback import router as feedback_router
 from app.api.v1.routes.history import router as history_router
 from app.api.v1.routes.i18n import router as i18n_router
 from app.api.v1.routes.profile import router as profile_router
 from app.api.v1.routes.search import router as search_router
+from app.services.analytics import fire_and_forget_request, retention_loop
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATIC_DIR = PROJECT_ROOT / "static"
@@ -52,11 +55,18 @@ async def lifespan(app: FastAPI):
     app.state.ai_clients = clients
     # Backward-compat alias: anything still reaching for a single client gets the heavy one.
     app.state.ai_client = clients["heavy"]
+    # First-party analytics retention: prune events/request_log past their windows.
+    retention_task: asyncio.Task | None = None
+    if settings.analytics_enabled:
+        retention_task = asyncio.create_task(retention_loop())
+
     async with httpx.AsyncClient(timeout=15.0) as client:
         app.state.http_client = client
         try:
             yield
         finally:
+            if retention_task:
+                retention_task.cancel()
             await cache.close_client()
 
 
@@ -129,8 +139,13 @@ async def log_requests(request: Request, call_next):
         response.status_code,
         elapsed_ms,
     )
+    # Persist ops metrics to Postgres (fire-and-forget; never blocks the response).
+    fire_and_forget_request(
+        request.method, request.url.path, response.status_code, elapsed_ms
+    )
     return response
 app.include_router(auth_router)
+app.include_router(events_router)
 app.include_router(profile_router)
 app.include_router(history_router)
 app.include_router(i18n_router)

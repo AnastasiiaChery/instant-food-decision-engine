@@ -5,6 +5,7 @@ import { getLocation, consumeSSE } from './api.js';
 import { placeUserPin, showMapTrigger, clearMarkers } from './map.js';
 import { renderRecommendation } from './render.js';
 import { t, getLang } from './i18n.js';
+import { track } from './analytics.js';
 
 export async function doAutopilot() {
   const btn = document.getElementById('autopilotBtn');
@@ -21,6 +22,7 @@ export async function doAutopilot() {
   catch (err) { setStatus(err.message, 'error'); btn.disabled = false; return; }
   placeUserPin(lat, lng);
   state.lastSearchLocation = { lat, lng };
+  track('search_started', { mode: 'autopilot', lang: getLang() });
 
   try {
     const res = await fetch('/api/v1/search', {
@@ -39,11 +41,13 @@ export async function doAutopilot() {
       } else if (evType === 'places') {
         const places = payload.places || payload;
         setStatus(t('status.analysing', { count: places.length }), 'loading');
+        track('places_shown', { mode: 'autopilot', count: places.length });
       } else if (evType === 'recommendation') {
         const name = payload.place?.name;
         if (name && !state.autopilotSeen.includes(name)) state.autopilotSeen.push(name);
         renderRecommendation(payload, true, doAutopilot);
         setStatus(t('status.yourPlace'), 'done');
+        track('recommendation_shown', { mode: 'autopilot' });
       } else if (evType === 'no_match') {
         setStatus(t('status.noMatchAutopilot'), 'error');
       } else if (evType === 'error') {

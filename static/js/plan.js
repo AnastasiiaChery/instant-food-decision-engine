@@ -5,6 +5,7 @@ import { getLocation, consumeSSE } from './api.js';
 import { initMap, openMap, closeMap, placeUserPin, showMapTrigger, clearMarkers } from './map.js';
 import { renderPlanRecommendations } from './render.js';
 import { t, getLang } from './i18n.js';
+import { track } from './analytics.js';
 
 export function setPlanLocation(lat, lng, label) {
   initMap();
@@ -67,6 +68,7 @@ export async function doPlan() {
       ...(budget ? { budget } : {}),
     };
     if (query) body.query = query;
+    track('search_started', { mode: 'plan', lang: getLang(), group, has_query: !!query });
 
     const res = await fetch('/api/v1/search', {
       method: 'POST', headers: authHeaders(), body: JSON.stringify(body),
@@ -78,11 +80,14 @@ export async function doPlan() {
         setStatus(t('status.aiPlanning'), 'loading');
       } else if (evType === 'places') {
         setStatus(t('status.findingOptions'), 'loading');
+        const places = payload.places || payload;
+        track('places_shown', { mode: 'plan', count: Array.isArray(places) ? places.length : 0 });
       } else if (evType === 'planning') {
         setStatus(payload.message || t('status.planning'), 'loading');
       } else if (evType === 'recommendations') {
         renderPlanRecommendations(payload);
         const count = (payload.recommendations || []).length;
+        track('recommendation_shown', { mode: 'plan', count });
         if (payload.notice) {
           setStatus(t(count === 1 ? 'status.alternative' : 'status.alternatives', { count }), 'warn');
         } else {
