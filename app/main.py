@@ -1,10 +1,11 @@
 import logging
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
@@ -55,10 +56,36 @@ async def lifespan(app: FastAPI):
         yield
 
 
-app = FastAPI(title="NomPilot — AI Dining Autopilot", version="0.2.0", lifespan=lifespan)
+# Interactive API docs leak the full endpoint/schema surface, so they are disabled in
+# production. Anything non-prod (local/dev) keeps /docs, /redoc and /openapi.json.
+_docs_enabled = not settings.is_production
+app = FastAPI(
+    title="NomPilot — AI Dining Autopilot",
+    version="0.2.0",
+    lifespan=lifespan,
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
+)
 app.mount("/static", StaticFiles(directory=PROJECT_ROOT / "static"), name="static")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """One structured line per request: method, path, status, latency."""
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "request method=%s path=%s status=%d duration_ms=%.1f",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed_ms,
+    )
+    return response
 app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(history_router)

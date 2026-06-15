@@ -8,22 +8,46 @@ from app.core.config import DEFAULT_JWT_SECRET, Settings
 from app.core.deps import build_ai_clients, build_llm
 
 
+# A production config that satisfies every check except the ones a given test targets.
+_SECURE_PROD = dict(
+    environment="production",
+    jwt_secret="a-strong-random-secret",
+    groq_api_key="gsk_x",
+    database_url="postgresql+asyncpg://app:s3cret@db:5432/instantfood",
+    redis_url="redis://redis:6379",
+)
+
+
 class StartupValidationTests(unittest.TestCase):
     def test_production_rejects_default_jwt_and_empty_key(self) -> None:
-        s = Settings(environment="production", jwt_secret=DEFAULT_JWT_SECRET, groq_api_key="")
+        # Only the JWT and LLM-key problems should fire here (DB/Redis are valid).
+        s = Settings(**{**_SECURE_PROD, "jwt_secret": DEFAULT_JWT_SECRET, "groq_api_key": ""})
         problems = s.validate_runtime()
         self.assertEqual(len(problems), 2)
 
+    def test_production_rejects_default_db_and_missing_redis(self) -> None:
+        # Default DB credentials and unset Redis are both fatal in production.
+        # Set them explicitly so a local .env can't mask the defaults under test.
+        s = Settings(
+            environment="production", jwt_secret="a-strong-random-secret", groq_api_key="gsk_x",
+            database_url="postgresql+asyncpg://postgres:postgres@localhost:5432/instantfood",
+            redis_url="",
+        )
+        problems = s.validate_runtime()
+        self.assertEqual(len(problems), 2)
+
+    def test_production_rejects_insecure_oauth_redirect(self) -> None:
+        s = Settings(**{**_SECURE_PROD, "google_client_id": "client-123",
+                        "google_redirect_uri": "http://example.com/auth/callback"})
+        self.assertIn("GOOGLE_REDIRECT_URI", " ".join(s.validate_runtime()))
+
     def test_production_passes_with_secure_config(self) -> None:
-        s = Settings(environment="production", jwt_secret="a-strong-random-secret", groq_api_key="gsk_x")
+        s = Settings(**_SECURE_PROD)
         self.assertEqual(s.validate_runtime(), [])
 
     def test_production_accepts_generic_ai_api_key(self) -> None:
         # AI_API_KEY alone (no GROQ_API_KEY) must satisfy the LLM-key check.
-        s = Settings(
-            environment="production", jwt_secret="a-strong-random-secret",
-            groq_api_key="", ai_api_key="sk-generic",
-        )
+        s = Settings(**{**_SECURE_PROD, "groq_api_key": "", "ai_api_key": "sk-generic"})
         self.assertEqual(s.validate_runtime(), [])
 
     def test_development_never_blocks_startup(self) -> None:

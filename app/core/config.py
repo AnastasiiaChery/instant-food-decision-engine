@@ -86,6 +86,21 @@ class Settings(BaseSettings):
                 f"No LLM API key set for provider '{self.ai_provider}' — set AI_API_KEY "
                 "(or GROQ_API_KEY) — the LLM features will fail at runtime"
             )
+        if "postgres:postgres@" in self.database_url:
+            problems.append(
+                "DATABASE_URL uses the insecure default postgres:postgres credentials — "
+                "set a real connection string with strong credentials"
+            )
+        if not self.redis_url:
+            problems.append(
+                "REDIS_URL is unset — rate limiting falls back to per-process memory and "
+                "is not shared across workers/instances; set a Redis URL"
+            )
+        if self.google_client_id and not self.google_redirect_uri.startswith("https://"):
+            problems.append(
+                "GOOGLE_REDIRECT_URI must use https:// in production "
+                "(OAuth is configured but the redirect URI is not secure)"
+            )
         return problems
 
 

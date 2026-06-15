@@ -13,7 +13,7 @@ services:
       PORT: "8000"
       DISTANCE_WEIGHT: "0.75"
       RELIABILITY_WEIGHT: "0.25"
-      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@postgres:5432/instantfood"
+      DATABASE_URL: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/instantfood"
       JWT_SECRET: "${JWT_SECRET:-change-me-in-prod}"
       GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
       GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
@@ -28,6 +28,7 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready')"]
       interval: 30s
@@ -36,8 +37,13 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
+    # Bound to localhost so Redis is reachable from the host for debugging but never
+    # exposed publicly; the api service reaches it over the compose network regardless.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -46,14 +52,22 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: instantfood
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+    # Localhost-only; not reachable from outside the host.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
