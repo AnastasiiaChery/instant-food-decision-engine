@@ -1,12 +1,16 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from app.core.rate_limit import limiter
 from app.services import translator
 
 router = APIRouter()
 
 
 @router.get("/api/v1/i18n/{lang}")
+# Unauthenticated and each uncached language triggers an LLM call, so cap the
+# per-IP rate even though the accepted languages are whitelisted (see translator).
+@limiter.limit("30/minute")
 async def get_i18n(lang: str, request: Request) -> JSONResponse:
     if not translator.is_valid_lang(lang.lower()):
         raise HTTPException(status_code=400, detail="Invalid language code")

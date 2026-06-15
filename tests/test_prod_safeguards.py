@@ -15,6 +15,7 @@ _SECURE_PROD = dict(
     groq_api_key="gsk_x",
     database_url="postgresql+asyncpg://app:s3cret@db:5432/instantfood",
     redis_url="redis://redis:6379",
+    allowed_hosts="nompilot.app",
 )
 
 
@@ -31,7 +32,7 @@ class StartupValidationTests(unittest.TestCase):
         s = Settings(
             environment="production", jwt_secret="a-strong-random-secret", groq_api_key="gsk_x",
             database_url="postgresql+asyncpg://postgres:postgres@localhost:5432/instantfood",
-            redis_url="",
+            redis_url="", allowed_hosts="nompilot.app",
         )
         problems = s.validate_runtime()
         self.assertEqual(len(problems), 2)

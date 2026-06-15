@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.core.deps import get_optional_user
@@ -23,12 +23,17 @@ async def submit_feedback(
     request: Request,
     user: User | None = Depends(get_optional_user),
 ):
+    # Require auth so the endpoint isn't an open, anonymous relay into the ops
+    # Telegram channel. The frontend hides the widget for guests to match.
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     await send_feedback(
         http_client=request.app.state.http_client,
         place_name=payload.place_name,
         query=payload.query,
         mode=payload.mode,
         comment=payload.comment,
-        user_email=user.email if user else None,
+        user_email=user.email,
     )
     return {"ok": True}

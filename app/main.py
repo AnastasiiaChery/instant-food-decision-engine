@@ -8,14 +8,15 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.deps import build_ai_clients, configure_langsmith
 from app.core.rate_limit import limiter
+from app.infrastructure import cache
 from app.api.v1.routes.auth import router as auth_router
-from app.api.v1.routes.decide import router as decide_router
 from app.api.v1.routes.feedback import router as feedback_router
 from app.api.v1.routes.history import router as history_router
 from app.api.v1.routes.i18n import router as i18n_router
@@ -53,7 +54,10 @@ async def lifespan(app: FastAPI):
     app.state.ai_client = clients["heavy"]
     async with httpx.AsyncClient(timeout=15.0) as client:
         app.state.http_client = client
-        yield
+        try:
+            yield
+        finally:
+            await cache.close_client()
 
 
 # Interactive API docs leak the full endpoint/schema surface, so they are disabled in
@@ -70,6 +74,46 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory=PROJECT_ROOT / "static"), name="static")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Reject requests whose Host header is not in the allowlist (DNS-rebinding / Host
+# spoofing). Skipped when ALLOWED_HOSTS is "*" (dev default); required in prod.
+if settings.allowed_hosts_list != ["*"]:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts_list)
+
+# Content-Security-Policy: the SPA is same-origin; the only third parties are the
+# Leaflet bundle (unpkg), Google Fonts, and the OSM/Carto map tiles + Nominatim
+# geocoder. 'unsafe-inline' stays on style-src only (inline style="" attributes and
+# Leaflet's runtime styles); script-src is locked to self + unpkg, so an injected
+# inline <script> cannot run even if the localStorage token were the target.
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' https://unpkg.com; "
+    "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; "
+    "img-src 'self' data: https://unpkg.com https://*.basemaps.cartocdn.com; "
+    "connect-src 'self' https://nominatim.openstreetmap.org; "
+    "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Attach baseline security headers to every response."""
+    response = await call_next(request)
+    response.headers.setdefault("Content-Security-Policy", _CSP)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Permissions-Policy", "geolocation=(self), camera=(), microphone=()"
+    )
+    # HSTS only in production (over HTTPS); sending it on plain-http dev would pin
+    # localhost to https and break local testing.
+    if settings.is_production:
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    return response
 
 
 @app.middleware("http")
@@ -92,7 +136,6 @@ app.include_router(history_router)
 app.include_router(i18n_router)
 app.include_router(search_router)
 app.include_router(feedback_router)
-app.include_router(decide_router)
 
 
 @app.get("/")

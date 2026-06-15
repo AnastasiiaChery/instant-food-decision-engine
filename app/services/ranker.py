@@ -1,19 +1,19 @@
 import json
 import logging
-from pathlib import Path
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
-
 from app.models.place import Place
 from app.models.profile import UserPreferences
 from app.models.search import PlaceIntent, RankedPlace
 from app.services.preferences import build_preferences_block
+from app.services.prompt_loader import load_prompt
 
-_SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "ranking.txt").read_text()
+logger = logging.getLogger(__name__)
+
+_SYSTEM_PROMPT = load_prompt("ranking.txt")
 
 _prompt = ChatPromptTemplate.from_messages([
     ("system", _SYSTEM_PROMPT),

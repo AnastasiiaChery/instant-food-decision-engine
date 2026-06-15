@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_optional_user
+from app.core.rate_limit import limiter
 from app.models.history import SearchHistory
 from app.models.user import User
 
@@ -11,17 +12,19 @@ router = APIRouter()
 
 
 class NavigatePayload(BaseModel):
-    place_osm_id: str | None = None
-    place_name: str
-    place_type: str
-    lat: float
-    lng: float
-    query: str | None = None
+    # Bounded so an authenticated client can't write arbitrarily large rows.
+    place_osm_id: str | None = Field(default=None, max_length=64)
+    place_name: str = Field(max_length=255)
+    place_type: str = Field(max_length=64)
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    query: str | None = Field(default=None, max_length=500)
     match_score: float | None = None
-    action_type: str = "navigate"
+    action_type: str = Field(default="navigate", max_length=32)
 
 
 @router.post("/api/v1/history/navigate")
+@limiter.limit("60/minute")
 async def record_navigate(
     payload: NavigatePayload,
     request: Request,

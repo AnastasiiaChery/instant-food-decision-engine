@@ -1,7 +1,6 @@
 import json
 import logging
 from collections.abc import Awaitable, Callable
-from pathlib import Path
 
 import httpx
 from langchain_core.language_models import BaseChatModel
@@ -15,10 +14,11 @@ from app.models.profile import UserPreferences
 from app.models.search import PlaceInfo, PlaceIntent, PlanRecommendation
 from app.services.places_client import VALID_AMENITIES, _deduplicate, _fetch_raw
 from app.services.preferences import build_preferences_block
+from app.services.prompt_loader import load_prompt
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "plan.txt").read_text()
+_SYSTEM_PROMPT = load_prompt("plan.txt")
 
 _prompt = ChatPromptTemplate.from_messages([
     ("system", _SYSTEM_PROMPT),

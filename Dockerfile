@@ -28,4 +28,7 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD python -c "import urllib
 
 # Migrations run once before the workers start. WEB_CONCURRENCY controls the uvicorn
 # worker count (override per deploy); rate limiting stays correct across workers via Redis.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers ${WEB_CONCURRENCY}"]
+# --proxy-headers + --forwarded-allow-ips makes uvicorn trust the platform load
+# balancer's X-Forwarded-For so the per-IP rate limiter keys on the real client IP
+# instead of bucketing every request under the proxy address.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers ${WEB_CONCURRENCY} --proxy-headers --forwarded-allow-ips=${FORWARDED_ALLOW_IPS:-*}"]
