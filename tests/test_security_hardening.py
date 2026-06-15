@@ -1,9 +1,37 @@
 import unittest
 
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.core.config import DEFAULT_JWT_SECRET, Settings
 from app.main import app
+from app.models.search import SearchRequest
+
+
+class SearchInputBoundsTests(unittest.TestCase):
+    """The /api/v1/search endpoint is unauthenticated and feeds free-text into the
+    LLM, so every text field must be size-bounded to cap token spend / abuse."""
+
+    def test_normal_request_is_accepted(self) -> None:
+        req = SearchRequest(lat=50.0, lng=14.0, query="cozy italian",
+                            exclude_place_names=["A", "B"])
+        self.assertEqual(len(req.exclude_place_names), 2)
+
+    def test_oversized_query_is_rejected(self) -> None:
+        with self.assertRaises(ValidationError):
+            SearchRequest(lat=0.0, lng=0.0, query="x" * 501)
+
+    def test_too_many_exclusions_are_rejected(self) -> None:
+        with self.assertRaises(ValidationError):
+            SearchRequest(lat=0.0, lng=0.0, exclude_place_names=["x"] * 21)
+
+    def test_oversized_exclusion_item_is_rejected(self) -> None:
+        with self.assertRaises(ValidationError):
+            SearchRequest(lat=0.0, lng=0.0, exclude_place_names=["y" * 201])
+
+    def test_oversized_when_is_rejected(self) -> None:
+        with self.assertRaises(ValidationError):
+            SearchRequest(lat=0.0, lng=0.0, when="z" * 21)
 
 
 class SecurityHeadersTests(unittest.TestCase):

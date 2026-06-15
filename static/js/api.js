@@ -62,7 +62,8 @@ export async function consumeSSE(res, onEvent) {
         else if (line.startsWith('data: ')) dataLine = line.slice(6);
       }
       if (!dataLine) continue;
-      try { onEvent(evType, JSON.parse(dataLine)); } catch (_) {}
+      try { onEvent(evType, JSON.parse(dataLine)); }
+      catch (err) { console.error('SSE event parse failed:', evType, err); }
     }
   }
 }

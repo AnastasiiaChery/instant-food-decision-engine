@@ -64,9 +64,49 @@ async function fetchDict(lang) {
   return data;
 }
 
+// Inline formatting tags permitted inside data-i18n-html strings. Everything
+// else is unwrapped to its text content by the sanitizer below.
+const ALLOWED_HTML_TAGS = new Set(['A', 'B', 'BR', 'EM', 'I', 'SPAN', 'STRONG']);
+
+function isSafeHref(href) {
+  const v = href.trim().toLowerCase();
+  return v.startsWith('/') || v.startsWith('http://')
+    || v.startsWith('https://') || v.startsWith('mailto:');
+}
+
+// Defense-in-depth: dictionaries for non-English languages are LLM-generated and
+// fetched at runtime, so markup-bearing strings are sanitized before they reach
+// innerHTML. Only the whitelisted inline tags survive; disallowed elements are
+// unwrapped to their text, and every attribute is stripped except a safe href /
+// target=_blank on anchors. A poisoned translation can therefore inject text but
+// never scripts, event handlers or javascript: URLs.
+function sanitizeHtml(html) {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  // Static snapshot in document order: unwrapped children appear after their
+  // parent here, so they're still visited and sanitized in turn.
+  tpl.content.querySelectorAll('*').forEach(el => {
+    if (!ALLOWED_HTML_TAGS.has(el.tagName)) {
+      el.replaceWith(...el.childNodes);
+      return;
+    }
+    [...el.attributes].forEach(attr => {
+      const name = attr.name.toLowerCase();
+      const keep = el.tagName === 'A'
+        && ((name === 'href' && isSafeHref(attr.value))
+          || (name === 'target' && attr.value === '_blank'));
+      if (!keep) el.removeAttribute(attr.name);
+    });
+    if (el.tagName === 'A' && el.getAttribute('target') === '_blank') {
+      el.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+  return tpl.innerHTML;
+}
+
 // Apply the current dictionary to all annotated DOM nodes.
 //   data-i18n            → textContent
-//   data-i18n-html       → innerHTML (for strings containing markup)
+//   data-i18n-html       → innerHTML (sanitized — see sanitizeHtml)
 //   data-i18n-placeholder→ placeholder attribute
 //   data-i18n-title      → title attribute
 // Only overwrite when the dictionary actually has the key. Missing keys keep
@@ -79,7 +119,7 @@ export function applyDOM(root = document) {
   });
   root.querySelectorAll('[data-i18n-html]').forEach(el => {
     const v = dict[el.dataset.i18nHtml];
-    if (v != null) el.innerHTML = v;
+    if (v != null) el.innerHTML = sanitizeHtml(v);
   });
   root.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     const v = dict[el.dataset.i18nPlaceholder];
