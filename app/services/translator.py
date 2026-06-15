@@ -90,24 +90,94 @@ _TRANSLATE_SYSTEM = (
 )
 
 
-async def _translate_with_llm(
-    lang: str, base: dict[str, str], ai_client: BaseChatModel
+# Translate in batches rather than one giant request. The base dictionary has
+# grown past what a small model can return in a single response on a rate-limited
+# tier (e.g. Groq free tier caps at 6000 tokens/minute): the reply was truncated
+# mid-JSON, json.loads failed, and the whole language silently fell back to
+# English — so the UI never switched. Each batch is small enough that input plus a
+# bounded output stay well under the per-request budget, and one bad batch degrades
+# only its own keys (via the merge below) instead of the entire dictionary.
+_BATCH_SIZE = 40
+# Bounded output per batch: large enough for ~40 translated values, small enough
+# that input + this stays under tight per-minute token limits (avoids truncation
+# AND "request too large" rejections).
+_BATCH_MAX_TOKENS = 2000
+# Small models occasionally emit a malformed value (e.g. a broken \uXXXX escape)
+# that breaks json.loads for an otherwise-fine batch. Re-ask a few times before
+# giving up on the batch — a fresh sample is usually valid.
+_BATCH_PARSE_RETRIES = 3
+
+# Some providers wrap the JSON in a ```json … ``` markdown fence despite being
+# told not to. Strip it so json.loads sees raw JSON.
+_FENCE_OPEN = re.compile(r"^```[a-zA-Z]*\n?")
+_FENCE_CLOSE = re.compile(r"\n?```$")
+
+
+def _strip_code_fence(content: str) -> str:
+    s = content.strip()
+    if s.startswith("```"):
+        s = _FENCE_CLOSE.sub("", _FENCE_OPEN.sub("", s))
+    return s.strip()
+
+
+async def _invoke_batch(
+    lang: str, batch: dict[str, str], ai_client: BaseChatModel
 ) -> dict[str, str]:
+    """One LLM call for one batch. Raises JSONDecodeError on unparseable output;
+    network/rate-limit errors propagate to the caller untouched."""
     system = _TRANSLATE_SYSTEM.format(lang=lang)
-    payload = json.dumps(base, ensure_ascii=False)
-    # OpenAI-compatible providers (Groq, OpenAI) honour response_format for strict JSON;
-    # other providers (e.g. Gemini) don't accept that kwarg, so fall back to a plain call
-    # and rely on the prompt + the key-preserving merge below to keep output well-formed.
+    payload = json.dumps(batch, ensure_ascii=False)
+    # response_format forces strict JSON on OpenAI-compatible providers (Groq, OpenAI),
+    # which a small model won't reliably produce on its own. Providers that reject the
+    # kwarg (e.g. Gemini) fall back to a plain call + fence-stripped parse.
     try:
-        llm = ai_client.bind(response_format={"type": "json_object"})
+        llm = ai_client.bind(
+            response_format={"type": "json_object"}, max_tokens=_BATCH_MAX_TOKENS
+        )
         resp = await llm.ainvoke([("system", system), ("human", payload)])
     except Exception:
         logger.warning("response_format unsupported for this provider, retrying without it")
-        resp = await ai_client.ainvoke([("system", system), ("human", payload)])
+        llm = ai_client.bind(max_tokens=_BATCH_MAX_TOKENS)
+        resp = await llm.ainvoke([("system", system), ("human", payload)])
     content = resp.content if isinstance(resp.content, str) else str(resp.content)
-    translated = json.loads(content)
+    translated = json.loads(_strip_code_fence(content))
     # Guard against the model dropping/adding keys: keep base value for any miss.
-    return {k: translated.get(k, v) for k, v in base.items()}
+    return {k: translated.get(k, v) for k, v in batch.items()}
+
+
+async def _translate_batch(
+    lang: str, batch: dict[str, str], ai_client: BaseChatModel
+) -> dict[str, str]:
+    """Translate one batch, retrying on malformed JSON. If every attempt is
+    unparseable, degrade *only this batch* to English rather than failing the whole
+    language. (Infra/rate-limit errors are not caught here — they propagate so the
+    caller fails the translation instead of caching an English-only result.)"""
+    for attempt in range(_BATCH_PARSE_RETRIES):
+        try:
+            return await _invoke_batch(lang, batch, ai_client)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "unparseable translation batch for %s (attempt %d/%d): %s",
+                lang, attempt + 1, _BATCH_PARSE_RETRIES, exc,
+            )
+    logger.error("giving up on a %s batch after %d tries, keeping English for it",
+                 lang, _BATCH_PARSE_RETRIES)
+    return dict(batch)
+
+
+async def _translate_with_llm(
+    lang: str, base: dict[str, str], ai_client: BaseChatModel
+) -> dict[str, str]:
+    items = list(base.items())
+    batches = [
+        dict(items[i : i + _BATCH_SIZE]) for i in range(0, len(items), _BATCH_SIZE)
+    ]
+    # Sequential, not concurrent: firing every batch at once just trips per-minute
+    # rate limits. The provider client retries throttled batches transparently.
+    result: dict[str, str] = {}
+    for batch in batches:
+        result.update(await _translate_batch(lang, batch, ai_client))
+    return result
 
 
 async def get_translations(lang: str, ai_client: BaseChatModel) -> dict[str, str]:
