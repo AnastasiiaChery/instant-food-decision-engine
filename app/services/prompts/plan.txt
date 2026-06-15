@@ -52,6 +52,10 @@ Assign a score 0.0–1.0 reflecting how well this venue fits the occasion, group
 - 0.8–1.0: excellent fit for this specific occasion and group
 - 0.5–0.7: good fit with minor gaps
 - 0.2–0.4: marginal — include only if nothing better is available
+
+### Requested cuisine is a hard constraint
+If the user's intent specifies a `cuisine` and a venue does NOT serve it — its `cuisine` tag doesn't include the requested type AND its name doesn't clearly imply it — that venue is NOT a match for the request, no matter how well it fits the occasion or group. Cap its `match_score` at 0.3, and the `reason` MUST acknowledge the gap, e.g. "no ukrainian spots nearby — closest alternative is…". Never describe a wrong-cuisine venue as a "perfect" fit. Still surface such venues as honest alternatives (the user gets to choose), but do not inflate the score: an excellent mediterranean restaurant is still a poor answer to a request for ukrainian food.
+
 Only include venues you would genuinely recommend. Don't invent fits, but when several venues genuinely work, include them all (up to 8) rather than trimming to a token few — the user wants real choice, especially in a busy area.
 
 ## Scenario label

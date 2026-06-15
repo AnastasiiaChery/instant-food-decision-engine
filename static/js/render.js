@@ -11,23 +11,6 @@ function placeKey(p) {
   return `${(p.name || '').trim().toLowerCase()}|${Number(p.lat).toFixed(5)}|${Number(p.lon).toFixed(5)}`;
 }
 
-export function addNoteWidget(container, place) {
-  const wrap = document.createElement('div');
-  wrap.className = 'place-note-wrap';
-  wrap.innerHTML = `
-    <button class="place-note-toggle">${escHtml(t('card.addNote'))}</button>
-    <textarea class="place-note-input" rows="2" maxlength="500"
-      placeholder="${escHtml(t('card.notePlaceholder'))}"></textarea>
-  `;
-  container.appendChild(wrap);
-  wrap.querySelector('.place-note-toggle').addEventListener('click', () => {
-    wrap.classList.toggle('open');
-    if (wrap.classList.contains('open')) wrap.querySelector('.place-note-input').focus();
-  });
-  wrap.addEventListener('click', e => e.stopPropagation());
-  return () => wrap.querySelector('.place-note-input').value.trim();
-}
-
 export function addFeedbackWidget(container, place) {
   // Capture context at render time, not at click time
   const capturedMode = state.currentMode;
@@ -153,10 +136,9 @@ export function renderPlaces(places) {
       <a class="card-nav" href="${escHtml(safeUrl(p.nav_url))}" target="_blank" rel="noopener noreferrer">${escHtml(t('card.navigate'))}</a>
     `;
     cardsGrid.appendChild(card);
-    const getNotes = addNoteWidget(card, p);
     addFavButton(card, p);
     addFeedbackWidget(card, p);
-    card.querySelector('.card-nav').addEventListener('click', () => recordNavigate(p, getNotes()));
+    card.querySelector('.card-nav').addEventListener('click', () => recordNavigate(p));
 
     const marker = L.marker([p.lat, p.lon], { icon: pinIcon(i, isTop) })
       .addTo(state.map)
@@ -237,10 +219,9 @@ export function renderRecommendation(data, animate = true, onRetry = null) {
   `;
   card.querySelector('.rec-reason').textContent = reason || '';
   cardsGrid.appendChild(card);
-  const getNotes = addNoteWidget(card, place);
   addFavButton(card, place);
   addFeedbackWidget(card, place);
-  card.querySelector('.rec-nav').addEventListener('click', () => recordNavigate(place, getNotes()));
+  card.querySelector('.rec-nav').addEventListener('click', () => recordNavigate(place));
   card.querySelector('.rec-another').addEventListener('click', () => {
     if (state.recFallback) {
       if (place.name && !state.autopilotSeen.includes(place.name)) state.autopilotSeen.push(place.name);
@@ -296,12 +277,11 @@ export function renderPlanRecommendations(data) {
     `;
     card.querySelector('.card-reason').textContent = reason || '';
     cardsGrid.appendChild(card);
-    const getNotes = addNoteWidget(card, place);
     addFavButton(card, place);
     addFeedbackWidget(card, place);
-    card.querySelector('.card-nav').addEventListener('click', () => recordNavigate(place, getNotes()));
+    card.querySelector('.card-nav').addEventListener('click', () => recordNavigate(place));
     card.addEventListener('click', e => {
-      if (e.target.closest('.card-nav') || e.target.closest('.place-note-wrap')) return;
+      if (e.target.closest('.card-nav')) return;
       openMap();
       setTimeout(() => state.map.flyTo([place.lat, place.lon], 16), 80);
     });

@@ -18,7 +18,6 @@ class NavigatePayload(BaseModel):
     lng: float
     query: str | None = None
     match_score: float | None = None
-    place_notes: str | None = None
     action_type: str = "navigate"
 
 
@@ -41,7 +40,6 @@ async def record_navigate(
         lng=payload.lng,
         query=payload.query,
         match_score=payload.match_score,
-        place_notes=payload.place_notes or None,
         action_type=payload.action_type,
     )
     db.add(entry)
@@ -74,7 +72,6 @@ async def get_history(
             "lng": e.lng,
             "nav_url": f"https://www.google.com/maps/dir/?api=1&destination={e.lat},{e.lng}",
             "action_type": e.action_type,
-            "place_notes": e.place_notes,
             "chosen_at": e.chosen_at.isoformat(),
         }
         for e in entries

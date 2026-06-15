@@ -190,6 +190,24 @@ def _no_match_threshold(n_candidates: int) -> float:
     return 0.40
 
 
+def _matches_cuisine(name: str | None, cuisine: str | None, intent: PlaceIntent) -> bool:
+    """True if the venue serves a requested cuisine, by tag or by name hint.
+
+    Mirrors the cuisine logic in `_quality_score`: an explicit `cuisine` tag match,
+    or — when the tag is absent — a name that contains the requested cuisine word.
+    Used to honestly gate the "no <cuisine> nearby" notice rather than trusting the
+    LLM's self-reported match_score.
+    """
+    if not intent.cuisine:
+        return True
+    wanted = {c.lower() for c in intent.cuisine}
+    if cuisine and any(c in cuisine.lower() for c in wanted):
+        return True
+    if not cuisine and name and any(c in name.lower() for c in wanted):
+        return True
+    return False
+
+
 def _quality_score(p: Place, intent: PlaceIntent) -> float:
     """Pre-sort score before sending to AI. Accounts for mood, venue type, cuisine, and features."""
     dist_score = max(0.0, 1.0 - p.distance_m / (settings.max_radius_m or 3000))
@@ -448,6 +466,14 @@ async def stream_search(
         # search_more_places expansion) rather than a pre-rank guess — so we don't
         # warn "no exact match" when the agent actually found good options.
         relaxed = max((r.match_score for r in recs), default=0.0) < _PLAN_NO_MATCH_THRESHOLD
+        # Deterministic honesty gate: if the user asked for a specific cuisine and
+        # NONE of the surfaced picks actually serve it, the planner substituted other
+        # cuisines — say so, regardless of how high it scored them. Don't rely on the
+        # LLM to self-report the mismatch via match_score.
+        if intent.cuisine and not any(
+            _matches_cuisine(r.place.name, r.place.cuisine, intent) for r in recs
+        ):
+            relaxed = True
         yield _plan_recommendations_event(recs, notice=_relaxed_notice(intent) if relaxed else None)
         return
 

@@ -454,23 +454,6 @@ header {
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .skel.short { width: 55%; margin-bottom: 0; }
 
-/* Place notes */
-.place-note-wrap { margin-top: 8px; }
-.place-note-toggle {
-  font-size: 12px; color: var(--text-3); background: none; border: none;
-  cursor: pointer; padding: 0; font-family: 'DM Sans', sans-serif; transition: color 0.15s;
-}
-.place-note-toggle:hover { color: var(--text-2); }
-.place-note-input {
-  display: none; width: 100%; margin-top: 6px;
-  padding: 7px 10px; font-family: 'DM Sans', sans-serif; font-size: 13px;
-  color: var(--text); background: var(--bg); border: 1px solid var(--border);
-  border-radius: 6px; resize: none; outline: none; transition: border-color 0.15s;
-}
-.place-note-input:focus { border-color: var(--accent); }
-.place-note-wrap.open .place-note-input { display: block; }
-.place-note-wrap.open .place-note-toggle { color: var(--text-2); }
-
 /* Feedback widget */
 .feedback-wrap { margin-top: 6px; }
 .feedback-toggle {

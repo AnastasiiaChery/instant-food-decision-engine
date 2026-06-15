@@ -67,7 +67,7 @@ export async function consumeSSE(res, onEvent) {
   }
 }
 
-export function recordNavigate(place, notes) {
+export function recordNavigate(place) {
   const token = getToken();
   if (!token) return;
   fetch('/api/v1/history/navigate', {
@@ -78,7 +78,6 @@ export function recordNavigate(place, notes) {
       place_type: place.amenity || 'restaurant',
       lat: place.lat,
       lng: place.lon,
-      place_notes: notes || null,
     }),
   }).catch(() => {});
 }
