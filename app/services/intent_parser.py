@@ -1,14 +1,14 @@
 import logging
-from pathlib import Path
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.models.search import PlaceIntent
+from app.services.prompt_loader import load_prompt
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "intent.txt").read_text()
+_SYSTEM_PROMPT = load_prompt("intent.txt")
 
 _prompt = ChatPromptTemplate.from_messages([
     ("system", _SYSTEM_PROMPT),

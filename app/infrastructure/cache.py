@@ -1,3 +1,4 @@
+import asyncio
 import json
 import math
 from typing import Any
@@ -5,19 +6,39 @@ from typing import Any
 from app.core.config import settings
 
 _redis_client: Any = None
+# Guards client creation: without it, concurrent first-use requests each build a
+# separate connection pool and all but one leak.
+_client_lock = asyncio.Lock()
 
 CACHE_TTL_SECONDS = 3600  # 1 hour; OSM data is stable and we fetch all types per cell
 
 
 async def _get_client() -> Any:
     global _redis_client
-    if _redis_client is None and settings.redis_url:
-        try:
-            import redis.asyncio as aioredis
-            _redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
-        except Exception:
-            _redis_client = None
+    if _redis_client is not None:
+        return _redis_client
+    if not settings.redis_url:
+        return None
+    async with _client_lock:
+        if _redis_client is None:  # re-check: another coroutine may have built it
+            try:
+                import redis.asyncio as aioredis
+                _redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+            except Exception:
+                _redis_client = None
     return _redis_client
+
+
+async def close_client() -> None:
+    """Close the shared Redis connection pool. Called at app shutdown so redeploys
+    don't leak server-side connections."""
+    global _redis_client
+    if _redis_client is not None:
+        try:
+            await _redis_client.aclose()
+        except Exception:
+            pass
+        _redis_client = None
 
 
 def _cache_key(lat: float, lng: float, radius_m: int) -> str:

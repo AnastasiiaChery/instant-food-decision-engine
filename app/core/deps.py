@@ -87,6 +87,10 @@ async def get_optional_user(
     payload = decode_access_token(token)
     if not payload:
         return None
-    user_id = int(payload.get("sub", 0))
+    try:
+        user_id = int(payload.get("sub"))
+    except (TypeError, ValueError):
+        # A token with a missing or non-numeric `sub` is malformed, not a 500.
+        return None
     result = await db.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()

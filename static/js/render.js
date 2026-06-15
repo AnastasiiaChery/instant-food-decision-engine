@@ -12,6 +12,9 @@ function placeKey(p) {
 }
 
 export function addFeedbackWidget(container, place) {
+  // Feedback posts to an authenticated endpoint, so don't show the widget to
+  // guests — it would only fail silently on send.
+  if (!getToken()) return;
   // Capture context at render time, not at click time
   const capturedMode = state.currentMode;
   const loc = state.lastSearchLocation;

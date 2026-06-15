@@ -28,17 +28,29 @@ _REDIS_PREFIX = "i18n_v1"
 # Accept ISO 639-1 codes, optionally with a region subtag (e.g. "pt-br").
 _LANG_RE = re.compile(r"^[a-z]{2}(-[a-z]{2})?$")
 
+# Languages the app officially offers (mirrors AVAILABLE_LANGS in static/js/i18n.js).
+# The /api/v1/i18n/{lang} endpoint is unauthenticated and each uncached language
+# triggers a real LLM translation call, so the accepted set is restricted to this
+# whitelist — otherwise an attacker could loop arbitrary codes to burn LLM budget.
+SUPPORTED_LANGS = frozenset({"en", "uk", "ru", "de", "es", "fr", "it", "pl", "pt"})
+
 _cache: dict[str, dict[str, str]] = {}
 _locks: dict[str, asyncio.Lock] = {}
 
 
 def is_valid_lang(lang: str) -> bool:
-    return bool(_LANG_RE.match(lang))
+    return bool(_LANG_RE.match(lang)) and lang in SUPPORTED_LANGS
 
 
 def _load_base() -> dict[str, str]:
     if _BASE_LANG not in _cache:
-        _cache[_BASE_LANG] = json.loads((_I18N_DIR / f"{_BASE_LANG}.json").read_text())
+        path = _I18N_DIR / f"{_BASE_LANG}.json"
+        try:
+            _cache[_BASE_LANG] = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(
+                f"Base i18n dictionary {path} is missing or invalid: {exc}"
+            ) from exc
     return _cache[_BASE_LANG]
 
 

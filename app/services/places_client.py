@@ -316,7 +316,8 @@ def passes_min_quality_filters(
     )
 
 
-# helpers re-exported for the legacy /v1/decide route
+# Standalone candidate scoring — kept independent of the ranker so the weighting
+# logic can be unit-tested in isolation (see tests/test_decision_logic.py).
 def score_candidate(candidate: dict[str, Any], distance_weight: float, reliability_weight: float) -> float:
     distance_score = max(0.0, 1.0 - (candidate["distance_m"] / 2500.0))
     has_cuisine = 1.0 if candidate.get("cuisine") else 0.0

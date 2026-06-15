@@ -1,4 +1,5 @@
 import re
+import secrets
 from urllib.parse import urlencode
 
 import httpx
@@ -98,47 +99,73 @@ GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
+# Short-lived cookie holding the OAuth `state` nonce. Scoped to the callback path
+# and HttpOnly so only the callback can read it back to defeat login-CSRF.
+_OAUTH_STATE_COOKIE = "oauth_state"
+_OAUTH_STATE_PATH = "/auth/callback"
+
 
 @router.get("/auth/google")
 async def google_login():
+    # CSRF nonce: echoed by Google in the callback and compared against the cookie.
+    state = secrets.token_urlsafe(32)
     params = {
         "client_id": settings.google_client_id,
         "redirect_uri": settings.google_redirect_uri,
         "response_type": "code",
         "scope": "openid email profile",
         "access_type": "offline",
+        "state": state,
     }
-    return RedirectResponse(f"{GOOGLE_AUTH_URL}?{urlencode(params)}", status_code=302)
+    resp = RedirectResponse(f"{GOOGLE_AUTH_URL}?{urlencode(params)}", status_code=302)
+    resp.set_cookie(
+        _OAUTH_STATE_COOKIE, state,
+        max_age=600, httponly=True, samesite="lax",
+        secure=settings.is_production, path=_OAUTH_STATE_PATH,
+    )
+    return resp
 
 
 @router.get("/auth/callback")
 async def google_callback(
+    request: Request,
     code: str | None = None,
+    state: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     if not code:
         raise HTTPException(status_code=400, detail="Missing authorization code")
 
-    async with httpx.AsyncClient() as client:
-        token_resp = await client.post(GOOGLE_TOKEN_URL, data={
-            "code": code,
-            "client_id": settings.google_client_id,
-            "client_secret": settings.google_client_secret,
-            "redirect_uri": settings.google_redirect_uri,
-            "grant_type": "authorization_code",
-        })
-        token_resp.raise_for_status()
-        access_token = token_resp.json()["access_token"]
+    # Verify the CSRF state against the cookie set in /auth/google.
+    cookie_state = request.cookies.get(_OAUTH_STATE_COOKIE)
+    if not state or not cookie_state or not secrets.compare_digest(state, cookie_state):
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
 
-        info_resp = await client.get(
-            GOOGLE_USERINFO_URL,
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        info_resp.raise_for_status()
-        info = info_resp.json()
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            token_resp = await client.post(GOOGLE_TOKEN_URL, data={
+                "code": code,
+                "client_id": settings.google_client_id,
+                "client_secret": settings.google_client_secret,
+                "redirect_uri": settings.google_redirect_uri,
+                "grant_type": "authorization_code",
+            })
+            token_resp.raise_for_status()
+            access_token = token_resp.json()["access_token"]
 
-    google_id = info["sub"]
-    email = info["email"]
+            info_resp = await client.get(
+                GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            info_resp.raise_for_status()
+            info = info_resp.json()
+        google_id = info["sub"]
+        email = info["email"]
+    except (httpx.HTTPError, KeyError, ValueError):
+        # Upstream failure / unexpected response shape — surface a clean 502 rather
+        # than leaking a traceback to the user.
+        raise HTTPException(status_code=502, detail="Google sign-in failed, please try again")
+
     display_name = info.get("name")
 
     result = await db.execute(select(User).where(User.google_id == google_id))
@@ -159,4 +186,8 @@ async def google_callback(
     await db.refresh(user)
 
     jwt_token = create_access_token(user_id=user.id, email=user.email, display_name=user.display_name)
-    return RedirectResponse(f"/?token={jwt_token}")
+    # Return the token in the URL *fragment*, not the query string: fragments are
+    # never sent to the server (kept out of access logs) nor in the Referer header.
+    resp = RedirectResponse(f"/#token={jwt_token}")
+    resp.delete_cookie(_OAUTH_STATE_COOKIE, path=_OAUTH_STATE_PATH)
+    return resp

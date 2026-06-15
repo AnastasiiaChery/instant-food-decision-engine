@@ -28,9 +28,10 @@ async function handleAuthSuccess(token) {
 }
 
 export function initAuth() {
-  // Handle URL token from Google OAuth callback
-  const urlParams = new URLSearchParams(location.search);
-  const urlToken  = urlParams.get('token');
+  // Handle token from the Google OAuth callback. The backend now returns it in the
+  // URL fragment (#token=…); fall back to the legacy ?token= query for safety.
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const urlToken   = hashParams.get('token') || new URLSearchParams(location.search).get('token');
   if (urlToken) {
     setToken(urlToken);
     history.replaceState({}, '', '/');
@@ -95,6 +96,9 @@ export function initAuth() {
 }
 
 // Auth modal event listeners (always active)
+// Wired here rather than via an inline onclick so the page can ship a strict CSP
+// (script-src without 'unsafe-inline').
+document.getElementById('googleLoginBtn')?.addEventListener('click', () => { location.href = '/auth/google'; });
 document.querySelectorAll('.auth-tab').forEach(t => t.addEventListener('click', () => switchAuthTab(t.dataset.authtab)));
 document.getElementById('authModalClose').addEventListener('click', closeAuthModal);
 document.getElementById('authModal').addEventListener('click', e => {

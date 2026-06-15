@@ -12,6 +12,18 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
 
+    # Comma-separated Host header allowlist for TrustedHostMiddleware (e.g.
+    # "nompilot.app,www.nompilot.app"). "*" disables host checking (dev default).
+    # In production a real host list is required (see validate_runtime) to block
+    # Host-header spoofing / DNS-rebinding against the same-origin SPA.
+    allowed_hosts: str = "*"
+
+    # Trusted proxy IPs for uvicorn's --forwarded-allow-ips. Behind a single PaaS
+    # load balancer the platform router is the only upstream, so "*" is the usual
+    # value; it lets get_remote_address (rate limiting) see the real client IP via
+    # X-Forwarded-For instead of bucketing every client under the proxy address.
+    forwarded_allow_ips: str = "*"
+
     # LLM provider: "groq" (default) | "openai" (any OpenAI-compatible endpoint) | "gemini".
     # The provider, the per-tier models and the key are all swappable via env so the
     # production model can be changed without a code release (see docs/llm-provider-routing-plan.md).
@@ -69,6 +81,12 @@ class Settings(BaseSettings):
         """API key for the active provider, with backward-compat fallback to GROQ_API_KEY."""
         return self.ai_api_key or self.groq_api_key
 
+    @property
+    def allowed_hosts_list(self) -> list[str]:
+        """Parsed Host allowlist. ['*'] means TrustedHostMiddleware is disabled."""
+        hosts = [h.strip() for h in self.allowed_hosts.split(",") if h.strip()]
+        return hosts or ["*"]
+
     def validate_runtime(self) -> list[str]:
         """Return a list of fatal misconfigurations for production.
 
@@ -95,6 +113,11 @@ class Settings(BaseSettings):
             problems.append(
                 "REDIS_URL is unset — rate limiting falls back to per-process memory and "
                 "is not shared across workers/instances; set a Redis URL"
+            )
+        if self.allowed_hosts_list == ["*"]:
+            problems.append(
+                "ALLOWED_HOSTS is unset (defaults to '*') — set a comma-separated host "
+                "allowlist (e.g. your domain) so the Host header is validated in production"
             )
         if self.google_client_id and not self.google_redirect_uri.startswith("https://"):
             problems.append(

@@ -115,6 +115,8 @@ JWT_SECRET=change-me-in-prod              # REQUIRED in prod — `openssl rand -
 Optional (shown with defaults):
 ```
 ENVIRONMENT=development       # "production" enables fail-fast checks (see below)
+ALLOWED_HOSTS=*               # comma-separated Host allowlist; required in prod (e.g. nompilot.app)
+FORWARDED_ALLOW_IPS=*         # trusted proxy IPs for X-Forwarded-For (rate-limit client IP)
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/instantfood
 REDIS_URL=                    # empty = no cache; required in production
 SEARCH_RADIUS_M=1500          # initial search radius
@@ -129,8 +131,12 @@ LANGSMITH_PROJECT=instant-food-decision-engine
 
 **Production fail-fast.** With `ENVIRONMENT=production` the app refuses to start
 when any of these are unsafe: a default/unset `JWT_SECRET`, a missing LLM API key,
-the default `postgres:postgres` DB credentials, an unset `REDIS_URL`, or a
-non-`https` `GOOGLE_REDIRECT_URI` (when Google OAuth is enabled).
+the default `postgres:postgres` DB credentials, an unset `REDIS_URL`, a wildcard
+`ALLOWED_HOSTS`, or a non-`https` `GOOGLE_REDIRECT_URI` (when Google OAuth is enabled).
+
+**Security middleware.** Every response carries a strict `Content-Security-Policy`
+plus `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` and (in prod)
+HSTS; `TrustedHostMiddleware` validates the `Host` header against `ALLOWED_HOSTS`.
 
 ## Search request
 
@@ -185,8 +191,9 @@ The response is a Server-Sent Events stream. Events arrive in this order:
 ## Auth
 
 **Google OAuth:**
-1. Sign in → "Continue with Google" → `/auth/google`
-2. Callback at `/auth/callback?code=...` → upsert user → JWT via `/?token=<jwt>`
+1. Sign in → "Continue with Google" → `/auth/google` (sets a short-lived `state` CSRF cookie)
+2. Callback at `/auth/callback?code=...&state=...` → state verified → upsert user → JWT
+   returned in the URL **fragment** (`/#token=<jwt>`, kept out of logs/Referer)
 3. First login with empty preferences → redirect to `/profile/setup` for onboarding
 
 **Email / password:**
