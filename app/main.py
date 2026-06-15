@@ -31,6 +31,7 @@ STATIC_DIR = PROJECT_ROOT / "static"
 INDEX_FILE = STATIC_DIR / "index.html"
 PRIVACY_FILE = STATIC_DIR / "privacy.html"
 TERMS_FILE = STATIC_DIR / "terms.html"
+STATS_FILE = STATIC_DIR / "stats.html"
 
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
@@ -166,6 +167,14 @@ def privacy() -> FileResponse:
 @app.get("/terms")
 def terms() -> FileResponse:
     return FileResponse(TERMS_FILE)
+
+
+# Admin analytics dashboard. This route only serves the static shell; the data it
+# fetches (/api/v1/admin/stats) is itself gated to ANALYTICS_ADMIN_EMAILS, so the
+# page renders a "no access" panel for everyone else.
+@app.get("/stats")
+def stats() -> FileResponse:
+    return FileResponse(STATS_FILE)
 
 
 @app.get("/favicon.ico")

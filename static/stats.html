@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>NomPilot — Analytics</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #faf7f2; --surface: #fff; --ink: #1c1a17; --muted: #6f6a62;
+      --line: #e8e2d8; --accent: #d9622b; --accent-soft: #f7e6da;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font-family: 'DM Sans', system-ui, sans-serif; line-height: 1.5;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 32px 20px 64px; }
+    header.top {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap; margin-bottom: 8px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+    .brand img { width: 28px; height: 28px; }
+    .brand-name { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 19px; }
+    .brand-name em { color: var(--accent); font-style: normal; }
+    h1.page-title {
+      font-family: 'Fraunces', serif; font-weight: 600; font-size: 30px;
+      margin: 18px 0 4px;
+    }
+    .generated { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+    .btn {
+      border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+      border-radius: 10px; padding: 9px 16px; font: inherit; font-weight: 600;
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+    section { margin-top: 32px; }
+    h2 {
+      font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px;
+      text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+      margin: 0 0 12px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+      padding: 18px 20px;
+    }
+    .card-value { font-family: 'Fraunces', serif; font-size: 30px; font-weight: 600; line-height: 1.1; }
+    .card-label { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .card-sub { color: var(--accent); font-size: 12px; margin-top: 6px; font-weight: 600; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+    .funnel-row { display: grid; grid-template-columns: 120px 1fr 64px; align-items: center; gap: 14px; margin-bottom: 10px; }
+    .funnel-label { font-size: 14px; }
+    .funnel-count { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .bar { background: var(--accent-soft); border-radius: 6px; height: 14px; overflow: hidden; }
+    .bar-fill { background: var(--accent); height: 100%; border-radius: 6px; min-width: 2px; transition: width .3s; }
+    .conv { margin-top: 14px; color: var(--muted); font-size: 13px; }
+    .pills { display: flex; flex-wrap: wrap; gap: 10px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px; background: var(--surface);
+      border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px;
+    }
+    .pill-key { text-transform: capitalize; }
+    .pill-val { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 14px; }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    td.right, th.right { text-align: right; font-variant-numeric: tabular-nums; }
+    tr:last-child td { border-bottom: none; }
+    .muted { color: var(--muted); }
+    .state { text-align: center; padding: 64px 20px; color: var(--muted); }
+    .state h2 { color: var(--ink); font-size: 18px; text-transform: none; letter-spacing: 0; }
+    .state .btn { margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="/"><img src="/static/favicon.svg" alt="" /><span class="brand-name">nom<em>pilot</em></span></a>
+      <button id="refreshBtn" class="btn" type="button">↻ Refresh</button>
+    </header>
+
+    <h1 class="page-title">Analytics</h1>
+    <div id="generatedAt" class="generated"></div>
+
+    <div id="loadingState" class="state">Loading…</div>
+
+    <div id="errorState" class="state" style="display:none">
+      <h2>No access</h2>
+      <p>This dashboard is restricted to admins. Make sure you're signed in with an
+         admin account, then try again.</p>
+      <a class="btn" href="/">← Back to app</a>
+    </div>
+
+    <div id="dashboard" style="display:none">
+      <section>
+        <h2>Audience</h2>
+        <div id="audience" class="grid"></div>
+      </section>
+
+      <section>
+        <h2>Funnel · last 7 days</h2>
+        <div class="panel">
+          <div id="funnel"></div>
+          <div id="funnelConv" class="conv"></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Searches by mode · last 7 days</h2>
+        <div id="modes" class="pills"></div>
+      </section>
+
+      <section>
+        <h2>Ops · last 24 hours</h2>
+        <div id="ops" class="grid"></div>
+      </section>
+
+      <section>
+        <h2>Busiest endpoints · last 24 hours</h2>
+        <div class="panel">
+          <table>
+            <thead>
+              <tr><th>Path</th><th class="right">Requests</th><th class="right">p95</th></tr>
+            </thead>
+            <tbody id="endpointsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module" src="/static/js/stats.js"></script>
+</body>
+</html>

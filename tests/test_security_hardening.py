@@ -52,6 +52,22 @@ class SecurityHeadersTests(unittest.TestCase):
         self.assertNotIn("Strict-Transport-Security", r.headers)
 
 
+class AdminStatsPageTests(unittest.TestCase):
+    def test_stats_page_is_served(self) -> None:
+        # The /stats route serves only the static shell; the data behind it is
+        # gated separately, so the page itself is public.
+        with TestClient(app) as client:
+            r = client.get("/stats")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("text/html", r.headers["content-type"])
+
+    def test_stats_data_endpoint_404s_without_admin(self) -> None:
+        # Unauthenticated request must 404 (not 403) so the endpoint isn't advertised.
+        with TestClient(app) as client:
+            r = client.get("/api/v1/admin/stats")
+        self.assertEqual(r.status_code, 404)
+
+
 class I18nWhitelistTests(unittest.TestCase):
     def test_supported_language_is_served(self) -> None:
         with TestClient(app) as client:
