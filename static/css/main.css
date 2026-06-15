@@ -295,8 +295,10 @@ header {
   padding: 11px;
   background: var(--accent);
   color: #fff;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px; font-weight: 500;
+  /* Match the Autopilot ("Decide for me") button's typeface for a consistent look. */
+  font-family: 'Fraunces', serif;
+  font-size: 20px; font-weight: 300; font-style: italic;
+  letter-spacing: -0.2px;
   border: none;
   border-radius: 10px;
   cursor: pointer;
