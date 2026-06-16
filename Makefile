@@ -13,7 +13,7 @@ run:
 	$(UVICORN) app.main:app --reload
 
 test:
-	$(PYTHON) -m unittest discover -s tests -p "test_*.py"
+	$(PYTHON) -m pytest tests/ --cov=app --cov-report=term-missing -q
 
 redis:
 	docker run --rm -p 6379:6379 redis:7-alpine

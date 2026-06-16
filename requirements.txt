@@ -20,3 +20,4 @@ langgraph==1.2.4
 langchain-core==1.4.6
 pytest==9.0.3
 pytest-asyncio==1.4.0
+pytest-cov==6.2.1
