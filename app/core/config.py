@@ -89,6 +89,34 @@ class Settings(BaseSettings):
         return self.environment.strip().lower() in ("production", "prod")
 
     @property
+    def database_url_async(self) -> str:
+        """DATABASE_URL normalized for asyncpg: correct scheme + sslmode stripped.
+
+        Railway/Heroku supply postgres:// or postgresql:// and append ?sslmode=require.
+        asyncpg rejects both: scheme must be postgresql+asyncpg and SSL params must be
+        passed via connect_args (see db_use_ssl), not embedded in the URL.
+        """
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # Strip SSL query params — asyncpg does not accept them in the URL string.
+        for param in ("sslmode=require", "sslmode=verify-full", "sslmode=verify-ca",
+                      "sslmode=prefer", "ssl=true", "ssl=require"):
+            url = url.replace(f"?{param}", "").replace(f"&{param}", "")
+        return url
+
+    @property
+    def db_use_ssl(self) -> bool:
+        """True when asyncpg should open an SSL connection.
+
+        Auto-detected from the original DATABASE_URL (sslmode/ssl params).
+        """
+        url = self.database_url.lower()
+        return any(p in url for p in ("sslmode=require", "sslmode=verify", "ssl=true", "ssl=require"))
+
+    @property
     def analytics_admin_emails_list(self) -> list[str]:
         """Lower-cased allowlist of admins who can read the stats dashboard."""
         return [e.strip().lower() for e in self.analytics_admin_emails.split(",") if e.strip()]
