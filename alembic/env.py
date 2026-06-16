@@ -1,12 +1,9 @@
 import asyncio
-import os
 from logging.config import fileConfig
 
 from alembic import context
 
 from app.infrastructure.database import Base, engine
-
-print(f"[alembic] DATABASE_URL env = {os.environ.get('DATABASE_URL', 'NOT SET')}", flush=True)
 from app.models.user import User  # noqa: F401 — needed for autogenerate
 from app.models.history import SearchHistory  # noqa: F401
 
