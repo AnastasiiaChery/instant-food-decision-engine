@@ -1,4 +1,5 @@
 # NomPilot — AI Dining Autopilot
+https://nompilot.up.railway.app/
 
 > Formerly *Instant Food Decision Engine* — the codename lives on in the package/DB names.
 
